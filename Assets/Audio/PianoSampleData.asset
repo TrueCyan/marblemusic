@@ -1,0 +1,219 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: faa8501e80bee5a4b8eb569f90f82e3e, type: 3}
+  m_Name: PianoSampleData
+  m_EditorClassIdentifier: 
+  samples:
+  - midiNote: 21
+    velocity: 30
+    clip: {fileID: 8300000, guid: 0390b625e26026544a8fc5a083b1b82f, type: 3}
+  - midiNote: 25
+    velocity: 30
+    clip: {fileID: 8300000, guid: f782f9752586eb242b87bbede1566b1f, type: 3}
+  - midiNote: 29
+    velocity: 30
+    clip: {fileID: 8300000, guid: 2c27e6d889e050f4c9caea6957bb4958, type: 3}
+  - midiNote: 33
+    velocity: 30
+    clip: {fileID: 8300000, guid: 73b5656e635f72b48adbbe49101d97a5, type: 3}
+  - midiNote: 37
+    velocity: 30
+    clip: {fileID: 8300000, guid: 1fc381dfb3a15fe43a29e5c7210c8a20, type: 3}
+  - midiNote: 41
+    velocity: 30
+    clip: {fileID: 8300000, guid: 9fa024e95ea4a604895550b1fa727547, type: 3}
+  - midiNote: 45
+    velocity: 30
+    clip: {fileID: 8300000, guid: 390d438057b1d3842adb200ca2c170a8, type: 3}
+  - midiNote: 49
+    velocity: 30
+    clip: {fileID: 8300000, guid: 357556cc77e5c3c4593db1ca556a23d8, type: 3}
+  - midiNote: 53
+    velocity: 30
+    clip: {fileID: 8300000, guid: 011dc5cbc140c664b8b84bda7bc3e812, type: 3}
+  - midiNote: 57
+    velocity: 30
+    clip: {fileID: 8300000, guid: 03db48e1aa10eb04cb4a04ea033bbfd6, type: 3}
+  - midiNote: 61
+    velocity: 30
+    clip: {fileID: 8300000, guid: b11f72553153b6449bf374937bb249d5, type: 3}
+  - midiNote: 65
+    velocity: 30
+    clip: {fileID: 8300000, guid: e373bb0b9aeb27049840c98798bcaa69, type: 3}
+  - midiNote: 69
+    velocity: 30
+    clip: {fileID: 8300000, guid: bc5e04ed80513c446b4bbf10ef089f50, type: 3}
+  - midiNote: 73
+    velocity: 30
+    clip: {fileID: 8300000, guid: 46c0e463636f8614da8d64658efef56e, type: 3}
+  - midiNote: 77
+    velocity: 30
+    clip: {fileID: 8300000, guid: 7b38ad833b09e224684b949097d04199, type: 3}
+  - midiNote: 81
+    velocity: 30
+    clip: {fileID: 8300000, guid: 5fbd5372715bc714da3ca52c078a010b, type: 3}
+  - midiNote: 85
+    velocity: 30
+    clip: {fileID: 8300000, guid: d8e39ba033110e34095f30c5daf9a095, type: 3}
+  - midiNote: 89
+    velocity: 30
+    clip: {fileID: 8300000, guid: 59f9a097353dde749b40871cbb658842, type: 3}
+  - midiNote: 93
+    velocity: 30
+    clip: {fileID: 8300000, guid: 1d34773be9b41594d91817de2c2ec402, type: 3}
+  - midiNote: 97
+    velocity: 30
+    clip: {fileID: 8300000, guid: f979696f9b51fe04ba8bb2f0bced2174, type: 3}
+  - midiNote: 101
+    velocity: 30
+    clip: {fileID: 8300000, guid: 08d88ef05ee271942abf0d6e39b4bd97, type: 3}
+  - midiNote: 105
+    velocity: 30
+    clip: {fileID: 8300000, guid: 3dc2d92af8846104e9a281bc1a40063a, type: 3}
+  - midiNote: 109
+    velocity: 30
+    clip: {fileID: 8300000, guid: 9f9f92a5622671e4e9a511bb5d14b923, type: 3}
+  - midiNote: 21
+    velocity: 80
+    clip: {fileID: 8300000, guid: 1e457cc298d61f74ab998a7061aced69, type: 3}
+  - midiNote: 25
+    velocity: 80
+    clip: {fileID: 8300000, guid: 36ec9e24c4ca4504c9d4d38584f25355, type: 3}
+  - midiNote: 29
+    velocity: 80
+    clip: {fileID: 8300000, guid: 5cf9ea2bd7e9c064b91e1a2328c0b761, type: 3}
+  - midiNote: 33
+    velocity: 80
+    clip: {fileID: 8300000, guid: f5772c6fb36aaa34e84c43c11c6a8d30, type: 3}
+  - midiNote: 37
+    velocity: 80
+    clip: {fileID: 8300000, guid: c80d14074148a464681f22dad951e4d7, type: 3}
+  - midiNote: 41
+    velocity: 80
+    clip: {fileID: 8300000, guid: 9ef26544e7437ab4e81692cd88a28440, type: 3}
+  - midiNote: 45
+    velocity: 80
+    clip: {fileID: 8300000, guid: 6c99e94f605d669489a62aa9d3f79d1d, type: 3}
+  - midiNote: 49
+    velocity: 80
+    clip: {fileID: 8300000, guid: a152719b12bf70e4a890e428ba1cb250, type: 3}
+  - midiNote: 53
+    velocity: 80
+    clip: {fileID: 8300000, guid: 502549bb396b1b548b66aa164719e103, type: 3}
+  - midiNote: 57
+    velocity: 80
+    clip: {fileID: 8300000, guid: 0656a7e6ebd1c2442a96f1623315f613, type: 3}
+  - midiNote: 61
+    velocity: 80
+    clip: {fileID: 8300000, guid: 9c73eec95a24fc94f88511b2eba523cc, type: 3}
+  - midiNote: 65
+    velocity: 80
+    clip: {fileID: 8300000, guid: b83f8f4761d23fa48be6d9f79df01799, type: 3}
+  - midiNote: 69
+    velocity: 80
+    clip: {fileID: 8300000, guid: 54b7eedd4c28b344c9a5949a6c163d8f, type: 3}
+  - midiNote: 73
+    velocity: 80
+    clip: {fileID: 8300000, guid: 252b2533e4f67974491749aa56bfdf97, type: 3}
+  - midiNote: 77
+    velocity: 80
+    clip: {fileID: 8300000, guid: 7415ba8c9842eaa4b97d2cc69c74daa4, type: 3}
+  - midiNote: 81
+    velocity: 80
+    clip: {fileID: 8300000, guid: 71c9c0794e0a2904e82e4a9ae1fc4d5c, type: 3}
+  - midiNote: 85
+    velocity: 80
+    clip: {fileID: 8300000, guid: b1b981f8028b83f498203b7c3d49d214, type: 3}
+  - midiNote: 89
+    velocity: 80
+    clip: {fileID: 8300000, guid: a4a091e15e861f245ba1efa99b546708, type: 3}
+  - midiNote: 93
+    velocity: 80
+    clip: {fileID: 8300000, guid: 30d9a983b8e92664ba24d36c48c3f748, type: 3}
+  - midiNote: 97
+    velocity: 80
+    clip: {fileID: 8300000, guid: 6dabfcf1dcaf4964a84b7dd8c1c6e763, type: 3}
+  - midiNote: 101
+    velocity: 80
+    clip: {fileID: 8300000, guid: 2a351d0e88fd20d42a0de17a81e358fa, type: 3}
+  - midiNote: 105
+    velocity: 80
+    clip: {fileID: 8300000, guid: e007ecf3d303b924fbf371659d49ee05, type: 3}
+  - midiNote: 109
+    velocity: 80
+    clip: {fileID: 8300000, guid: 446dcddaf83509441961b37d5182cc1d, type: 3}
+  - midiNote: 21
+    velocity: 119
+    clip: {fileID: 8300000, guid: 92d3ca4519267ea4da88c6321a83140f, type: 3}
+  - midiNote: 25
+    velocity: 119
+    clip: {fileID: 8300000, guid: d760d32b36bb8724e83e9e84106da395, type: 3}
+  - midiNote: 29
+    velocity: 119
+    clip: {fileID: 8300000, guid: 84ddc9a073528e4478449c79c8b6671c, type: 3}
+  - midiNote: 33
+    velocity: 119
+    clip: {fileID: 8300000, guid: 0b43e8924a9f43b489d5ba7f11db6124, type: 3}
+  - midiNote: 37
+    velocity: 119
+    clip: {fileID: 8300000, guid: 70cec70d8e6fc764ebec9595ce91ca09, type: 3}
+  - midiNote: 41
+    velocity: 119
+    clip: {fileID: 8300000, guid: 319e262af7766c847902c87e56c652eb, type: 3}
+  - midiNote: 45
+    velocity: 119
+    clip: {fileID: 8300000, guid: 2519230c5fea4804bae5a8b514b0f6b2, type: 3}
+  - midiNote: 49
+    velocity: 119
+    clip: {fileID: 8300000, guid: ad6af8bc986c48e4aa24d495a83d63db, type: 3}
+  - midiNote: 53
+    velocity: 119
+    clip: {fileID: 8300000, guid: 75a83fe32eed9594294001e5867f4c07, type: 3}
+  - midiNote: 57
+    velocity: 119
+    clip: {fileID: 8300000, guid: d717d9118c012764e85a6389f4d2b8e1, type: 3}
+  - midiNote: 61
+    velocity: 119
+    clip: {fileID: 8300000, guid: 901698834086ee14bbdd1df35026fa6d, type: 3}
+  - midiNote: 65
+    velocity: 119
+    clip: {fileID: 8300000, guid: 8598b55df53118145aa21330be8dd555, type: 3}
+  - midiNote: 69
+    velocity: 119
+    clip: {fileID: 8300000, guid: 37089a2389659194c97a413fb15c475a, type: 3}
+  - midiNote: 77
+    velocity: 119
+    clip: {fileID: 8300000, guid: 36e5ffe5afd81a34582f68a09d1fc59e, type: 3}
+  - midiNote: 81
+    velocity: 119
+    clip: {fileID: 8300000, guid: 34a2a5fa5222ba94b91bfd3d3866fdbb, type: 3}
+  - midiNote: 85
+    velocity: 119
+    clip: {fileID: 8300000, guid: 282b477fa14ae1a4a8afb40ab65e703b, type: 3}
+  - midiNote: 89
+    velocity: 119
+    clip: {fileID: 8300000, guid: 45e235e31065a804fad96f0d719d0cbe, type: 3}
+  - midiNote: 93
+    velocity: 119
+    clip: {fileID: 8300000, guid: c8f9278949e205442968fb46aa3bdec6, type: 3}
+  - midiNote: 97
+    velocity: 119
+    clip: {fileID: 8300000, guid: e2863c3b07b0876489bbf491dc15ede6, type: 3}
+  - midiNote: 101
+    velocity: 119
+    clip: {fileID: 8300000, guid: a9371f0178a59c14d812fab76f0661d5, type: 3}
+  - midiNote: 105
+    velocity: 119
+    clip: {fileID: 8300000, guid: 47ba03de901a0c148bc35978b7764da3, type: 3}
+  - midiNote: 109
+    velocity: 119
+    clip: {fileID: 8300000, guid: c9a8194227f406d42945de94224c1465, type: 3}

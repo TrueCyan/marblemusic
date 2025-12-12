@@ -1,0 +1,19 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: b2c3d4e5f6789012345678abcdef0123, type: 3}
+  m_Name: HiHat
+  m_EditorClassIdentifier:
+  instrumentName: HiHat
+  prefab: {fileID: 1278814736312916979, guid: 9e7ddb7132f42e44e8c4c8da9b55ac57, type: 3}
+  icon: {fileID: 0}
+  soundClip: {fileID: 8300000, guid: 9f17eae80f604a1449c8ded791fd2064, type: 3}
+  volumeMultiplier: 1

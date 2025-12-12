@@ -1,0 +1,86 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: c3d4e5f6789012345678abcdef012345, type: 3}
+  m_Name: Piano
+  m_EditorClassIdentifier:
+  instrumentName: Piano
+  prefab: {fileID: 4091503084875554766, guid: 20987098fd1de2d469205cc41c803c61, type: 3}
+  icon: {fileID: 0}
+  samples:
+  - midiNote: 21
+    clip: {fileID: 8300000, guid: 92d3ca4519267ea4da88c6321a83140f, type: 3}
+    volumeAdjust: 1
+  - midiNote: 25
+    clip: {fileID: 8300000, guid: d760d32b36bb8724e83e9e84106da395, type: 3}
+    volumeAdjust: 1
+  - midiNote: 29
+    clip: {fileID: 8300000, guid: 84ddc9a073528e4478449c79c8b6671c, type: 3}
+    volumeAdjust: 1
+  - midiNote: 33
+    clip: {fileID: 8300000, guid: 0b43e8924a9f43b489d5ba7f11db6124, type: 3}
+    volumeAdjust: 1
+  - midiNote: 37
+    clip: {fileID: 8300000, guid: 70cec70d8e6fc764ebec9595ce91ca09, type: 3}
+    volumeAdjust: 1
+  - midiNote: 41
+    clip: {fileID: 8300000, guid: 319e262af7766c847902c87e56c652eb, type: 3}
+    volumeAdjust: 1
+  - midiNote: 45
+    clip: {fileID: 8300000, guid: 2519230c5fea4804bae5a8b514b0f6b2, type: 3}
+    volumeAdjust: 1
+  - midiNote: 49
+    clip: {fileID: 8300000, guid: ad6af8bc986c48e4aa24d495a83d63db, type: 3}
+    volumeAdjust: 1
+  - midiNote: 53
+    clip: {fileID: 8300000, guid: 75a83fe32eed9594294001e5867f4c07, type: 3}
+    volumeAdjust: 1
+  - midiNote: 57
+    clip: {fileID: 8300000, guid: d717d9118c012764e85a6389f4d2b8e1, type: 3}
+    volumeAdjust: 1
+  - midiNote: 61
+    clip: {fileID: 8300000, guid: 901698834086ee14bbdd1df35026fa6d, type: 3}
+    volumeAdjust: 1
+  - midiNote: 65
+    clip: {fileID: 8300000, guid: 8598b55df53118145aa21330be8dd555, type: 3}
+    volumeAdjust: 1
+  - midiNote: 69
+    clip: {fileID: 8300000, guid: 37089a2389659194c97a413fb15c475a, type: 3}
+    volumeAdjust: 1
+  - midiNote: 77
+    clip: {fileID: 8300000, guid: 36e5ffe5afd81a34582f68a09d1fc59e, type: 3}
+    volumeAdjust: 1
+  - midiNote: 81
+    clip: {fileID: 8300000, guid: 34a2a5fa5222ba94b91bfd3d3866fdbb, type: 3}
+    volumeAdjust: 1
+  - midiNote: 85
+    clip: {fileID: 8300000, guid: 282b477fa14ae1a4a8afb40ab65e703b, type: 3}
+    volumeAdjust: 1
+  - midiNote: 89
+    clip: {fileID: 8300000, guid: 45e235e31065a804fad96f0d719d0cbe, type: 3}
+    volumeAdjust: 1
+  - midiNote: 93
+    clip: {fileID: 8300000, guid: c8f9278949e205442968fb46aa3bdec6, type: 3}
+    volumeAdjust: 1
+  - midiNote: 97
+    clip: {fileID: 8300000, guid: e2863c3b07b0876489bbf491dc15ede6, type: 3}
+    volumeAdjust: 1
+  - midiNote: 101
+    clip: {fileID: 8300000, guid: a9371f0178a59c14d812fab76f0661d5, type: 3}
+    volumeAdjust: 1
+  - midiNote: 105
+    clip: {fileID: 8300000, guid: 47ba03de901a0c148bc35978b7764da3, type: 3}
+    volumeAdjust: 1
+  - midiNote: 109
+    clip: {fileID: 8300000, guid: c9a8194227f406d42945de94224c1465, type: 3}
+    volumeAdjust: 1
+  volumeMultiplier: 1
+  maxPitchShiftSemitones: 6

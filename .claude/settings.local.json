@@ -1,0 +1,27 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(prefab-tool scan-scripts:*)",
+      "Bash(prefab-tool scan-meta:*)",
+      "Bash(cat:*)",
+      "Bash(dir:*)",
+      "Bash(find:*)",
+      "Bash(prefab-tool export:*)",
+      "Bash(python:*)",
+      "Bash(prefab-tool import:*)",
+      "Bash(prefab-tool query:*)",
+      "Bash(grep:*)",
+      "Bash(prefab-tool validate:*)",
+      "Bash(for f in Assets/Prefabs/*.prefab)",
+      "Bash(do echo \"=== $f ===\")",
+      "Bash(done)",
+      "Bash(findstr:*)",
+      "Bash(set:*)",
+      "Skill(unity-prefab-scene)",
+      "Bash(C:UsersTRUECYANanaconda3python.exe:*)",
+      "Bash(/c/Users/TRUECYAN/anaconda3/python.exe:*)"
+    ],
+    "deny": [],
+    "ask": []
+  }
+}

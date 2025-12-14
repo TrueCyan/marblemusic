@@ -13,7 +13,7 @@ MonoBehaviour:
   m_Name: Snare
   m_EditorClassIdentifier:
   instrumentName: Snare
-  prefab: {fileID: 1278814736312916979, guid: 9e7ddb7132f42e44e8c4c8da9b55ac57, type: 3}
-  icon: {fileID: 0}
+  prefab: {fileID: 3065840435752252678, guid: 96a0ac8f143948dfa33c69216a9d3f83, type: 3}
+  icon: {fileID: 21300000, guid: 9369a50930efbb3438405ce0d5e89458, type: 3}
   soundClip: {fileID: 8300000, guid: 8ef0341c78f36174990a9595639302d0, type: 3}
   volumeMultiplier: 1

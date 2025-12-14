@@ -12,15 +12,21 @@ public class MainUIManager : MonoBehaviour
     public static MainUIManager Instance { get; private set; }
 
     [Header("Mode Panel (Top-Left)")]
+    [SerializeField] private Button playModeBtn;
     [SerializeField] private Button selectModeBtn;
     [SerializeField] private Button placeModeBtn;
     [SerializeField] private Button deleteModeBtn;
-    [SerializeField] private Button rotateModeBtn;
 
     [Header("BPM Panel (Top-Right)")]
     [SerializeField] private Button bpmMinusBtn;
     [SerializeField] private TMP_InputField bpmInputField;
     [SerializeField] private Button bpmPlusBtn;
+
+    [Header("Beat Division Panel")]
+    [SerializeField] private Button beatDivMinusBtn;  // 분할 감소
+    [SerializeField] private TextMeshProUGUI beatDivisionText;
+    [SerializeField] private Button beatDivPlusBtn;   // 분할 증가
+    [SerializeField] private Button beatSnapToggleBtn; // 박자 스냅 토글
 
     [Header("Object Dock (Bottom)")]
     [SerializeField] private GameObject dockPanel;
@@ -40,9 +46,6 @@ public class MainUIManager : MonoBehaviour
     [SerializeField] private Button noteUpBtn;
     [SerializeField] private Button noteDownBtn;
 
-    [Header("Manual Prefab Lists (Spawner/Other)")]
-    [SerializeField] private GameObject[] spawnerPrefabs;
-    [SerializeField] private GameObject[] otherPrefabs;
 
     [Header("Dock Item Settings")]
     [SerializeField] private Vector2 dockItemSize = new Vector2(80, 80);
@@ -60,7 +63,9 @@ public class MainUIManager : MonoBehaviour
     private int currentBPM = 120;
     private int currentNoteIndex = 0; // 0-11 (C, C#, D, ...)
     private int currentOctave = 4;    // 옥타브 (0-8)
+    private int currentDivisionIndex = 0; // 비트 분할 인덱스
     private static readonly string[] noteNames = { "C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B" };
+    private static readonly int[] beatDivisions = { 1, 2, 3, 4, 6, 8, 12, 16, 24, 32 };
 
     // 현재 선택된 악기 데이터
     private InstrumentData selectedInstrumentData;
@@ -86,13 +91,14 @@ public class MainUIManager : MonoBehaviour
     {
         SetupModeButtons();
         SetupBPMControls();
+        SetupBeatDivisionControls();
         SetupDockTabs();
         SetupInlineNoteControl();
 
         // AudioManager가 초기화된 후 악기 로드
         Invoke(nameof(LoadInstrumentsFromAudioManager), 0.1f);
 
-        SetMode(ObjectPlacer.PlacementMode.Select);
+        SetMode(ObjectPlacer.PlacementMode.Play);
         ShowDock(false);
     }
 
@@ -132,10 +138,10 @@ public class MainUIManager : MonoBehaviour
         if (bpmInputField != null && bpmInputField.isFocused) return;
 
         // 모드 단축키
-        if (Input.GetKeyDown(KeyCode.Q)) SetMode(ObjectPlacer.PlacementMode.Select);
-        if (Input.GetKeyDown(KeyCode.W)) SetMode(ObjectPlacer.PlacementMode.Place);
-        if (Input.GetKeyDown(KeyCode.E)) SetMode(ObjectPlacer.PlacementMode.Delete);
-        if (Input.GetKeyDown(KeyCode.R)) SetMode(ObjectPlacer.PlacementMode.Rotate);
+        if (Input.GetKeyDown(KeyCode.Q)) SetMode(ObjectPlacer.PlacementMode.Play);
+        if (Input.GetKeyDown(KeyCode.W)) SetMode(ObjectPlacer.PlacementMode.Select);
+        if (Input.GetKeyDown(KeyCode.E)) SetMode(ObjectPlacer.PlacementMode.Place);
+        if (Input.GetKeyDown(KeyCode.R)) SetMode(ObjectPlacer.PlacementMode.Delete);
 
         // Place 모드에서 탭 단축키
         if (ObjectPlacer.Instance != null && ObjectPlacer.Instance.GetCurrentMode() == ObjectPlacer.PlacementMode.Place)
@@ -175,16 +181,16 @@ public class MainUIManager : MonoBehaviour
 
     private void SetupModeButtons()
     {
-        modeButtons = new Button[] { selectModeBtn, placeModeBtn, deleteModeBtn, rotateModeBtn };
+        modeButtons = new Button[] { playModeBtn, selectModeBtn, placeModeBtn, deleteModeBtn };
 
+        if (playModeBtn != null)
+            playModeBtn.onClick.AddListener(() => SetMode(ObjectPlacer.PlacementMode.Play));
         if (selectModeBtn != null)
             selectModeBtn.onClick.AddListener(() => SetMode(ObjectPlacer.PlacementMode.Select));
         if (placeModeBtn != null)
             placeModeBtn.onClick.AddListener(() => SetMode(ObjectPlacer.PlacementMode.Place));
         if (deleteModeBtn != null)
             deleteModeBtn.onClick.AddListener(() => SetMode(ObjectPlacer.PlacementMode.Delete));
-        if (rotateModeBtn != null)
-            rotateModeBtn.onClick.AddListener(() => SetMode(ObjectPlacer.PlacementMode.Rotate));
     }
 
     public void SetMode(ObjectPlacer.PlacementMode mode)
@@ -284,6 +290,86 @@ public class MainUIManager : MonoBehaviour
         UpdateBPMDisplay();
         ApplyBPM();
     }
+
+    #endregion
+
+    #region Beat Division Controls
+
+    private void SetupBeatDivisionControls()
+    {
+        if (beatDivMinusBtn != null)
+            beatDivMinusBtn.onClick.AddListener(() => ChangeBeatDivision(-1));
+        if (beatDivPlusBtn != null)
+            beatDivPlusBtn.onClick.AddListener(() => ChangeBeatDivision(1));
+        if (beatSnapToggleBtn != null)
+            beatSnapToggleBtn.onClick.AddListener(ToggleBeatSnap);
+
+        UpdateBeatDivisionDisplay();
+        UpdateBeatSnapButtonVisual();
+    }
+
+    private void ChangeBeatDivision(int delta)
+    {
+        currentDivisionIndex = Mathf.Clamp(currentDivisionIndex + delta, 0, beatDivisions.Length - 1);
+        UpdateBeatDivisionDisplay();
+        ApplyBeatDivision();
+    }
+
+    public void SetBeatDivision(int division)
+    {
+        // 가장 가까운 인덱스 찾기
+        for (int i = 0; i < beatDivisions.Length; i++)
+        {
+            if (beatDivisions[i] == division)
+            {
+                currentDivisionIndex = i;
+                break;
+            }
+        }
+        UpdateBeatDivisionDisplay();
+        ApplyBeatDivision();
+    }
+
+    private void UpdateBeatDivisionDisplay()
+    {
+        if (beatDivisionText != null)
+        {
+            beatDivisionText.text = beatDivisions[currentDivisionIndex].ToString();
+        }
+    }
+
+    private void ApplyBeatDivision()
+    {
+        float division = 1f / beatDivisions[currentDivisionIndex];
+        if (TrajectoryPredictor.Instance != null)
+        {
+            TrajectoryPredictor.Instance.SetBeatDivision(division);
+        }
+    }
+
+    private void ToggleBeatSnap()
+    {
+        if (ObjectPlacer.Instance != null)
+        {
+            ObjectPlacer.Instance.ToggleBeatSnap();
+            UpdateBeatSnapButtonVisual();
+        }
+    }
+
+    private void UpdateBeatSnapButtonVisual()
+    {
+        if (beatSnapToggleBtn != null)
+        {
+            Image img = beatSnapToggleBtn.GetComponent<Image>();
+            if (img != null)
+            {
+                bool isEnabled = ObjectPlacer.Instance != null && ObjectPlacer.Instance.IsBeatSnapEnabled();
+                img.color = isEnabled ? selectedColor : normalColor;
+            }
+        }
+    }
+
+    public float GetCurrentBeatDivision() => 1f / beatDivisions[currentDivisionIndex];
 
     #endregion
 
@@ -398,9 +484,9 @@ public class MainUIManager : MonoBehaviour
 
     private void PopulateDock()
     {
-        // Spawner 탭
-        if (spawnerContent != null && spawnerPrefabs != null)
-            PopulateManualContent(spawnerContent, spawnerPrefabs, 0);
+        // Spawner 탭 (GameManager에서 프리팹 참조)
+        if (spawnerContent != null)
+            PopulateSpawnerContent(spawnerContent, 0);
 
         // Beat 탭 (AudioManager에서 자동 로드)
         if (beatContent != null && beatInstruments != null)
@@ -410,31 +496,74 @@ public class MainUIManager : MonoBehaviour
         if (melodyContent != null && melodyInstruments != null)
             PopulateInstrumentContent(melodyContent, melodyInstruments, 2);
 
-        // Other 탭
-        if (otherContent != null && otherPrefabs != null)
-            PopulateManualContent(otherContent, otherPrefabs, 3);
+        // Other 탭 - 포탈 및 기타 오브젝트
+        if (otherContent != null)
+            PopulateOtherContent(otherContent, 3);
 
         SwitchTab(0);
     }
 
-    private void PopulateManualContent(Transform parent, GameObject[] prefabs, int tabIndex)
+    private void PopulateSpawnerContent(Transform parent, int tabIndex)
     {
         ClearContent(parent);
 
-        for (int i = 0; i < prefabs.Length; i++)
+        GameObject spawnerPrefab = GameManager.Instance?.SpawnerPrefab;
+        if (spawnerPrefab == null) return;
+
+        Sprite spawnerSprite = GetSpriteFromPrefab(spawnerPrefab);
+        GameObject item = CreateDockItem("Spawner", parent, spawnerSprite);
+
+        Button btn = item.GetComponent<Button>();
+        if (btn != null)
         {
-            if (prefabs[i] == null) continue;
+            btn.onClick.AddListener(() => OnSpawnerClicked(item, tabIndex));
+        }
+    }
 
-            GameObject item = CreateDockItem(prefabs[i].name, parent);
-            int prefabIndex = i;
-            int tab = tabIndex;
-            GameObject prefab = prefabs[i];
+    private void OnSpawnerClicked(GameObject item, int tabIndex)
+    {
+        SelectDockItem(item);
+        ObjectPlacer.Instance?.SelectSpawnerPrefab();
+    }
 
-            Button btn = item.GetComponent<Button>();
-            if (btn != null)
-            {
-                btn.onClick.AddListener(() => OnManualPrefabClicked(prefab, item, tab));
-            }
+    /// <summary>
+    /// 프리팹에서 스프라이트 추출
+    /// </summary>
+    private Sprite GetSpriteFromPrefab(GameObject prefab)
+    {
+        if (prefab == null) return null;
+
+        // SpriteRenderer에서 스프라이트 가져오기
+        SpriteRenderer sr = prefab.GetComponent<SpriteRenderer>();
+        if (sr != null && sr.sprite != null)
+        {
+            return sr.sprite;
+        }
+
+        // 자식에서 찾기
+        sr = prefab.GetComponentInChildren<SpriteRenderer>();
+        if (sr != null && sr.sprite != null)
+        {
+            return sr.sprite;
+        }
+
+        return null;
+    }
+
+    private void PopulateOtherContent(Transform parent, int tabIndex)
+    {
+        ClearContent(parent);
+
+        // 포탈 아이콘 가져오기 (GameManager에서 Portal_A 참조)
+        GameObject portalAPrefab = GameManager.Instance?.PortalAPrefab;
+        Sprite portalSprite = portalAPrefab != null ? GetSpriteFromPrefab(portalAPrefab) : null;
+
+        // 포탈 아이템 추가 (A와 B를 연결 배치하는 통합 오브젝트)
+        GameObject portalItem = CreateDockItem("Portal", parent, portalSprite);
+        Button portalBtn = portalItem.GetComponent<Button>();
+        if (portalBtn != null)
+        {
+            portalBtn.onClick.AddListener(() => OnPortalClicked(portalItem, tabIndex));
         }
     }
 
@@ -447,7 +576,7 @@ public class MainUIManager : MonoBehaviour
             InstrumentData inst = instruments[i];
             if (inst == null) continue;
 
-            GameObject item = CreateDockItem(inst.InstrumentName, parent);
+            GameObject item = CreateDockItem(inst.InstrumentName, parent, inst.Icon);
             int tab = tabIndex;
 
             Button btn = item.GetComponent<Button>();
@@ -468,7 +597,7 @@ public class MainUIManager : MonoBehaviour
         }
     }
 
-    private GameObject CreateDockItem(string displayName, Transform parent)
+    private GameObject CreateDockItem(string displayName, Transform parent, Sprite icon = null)
     {
         GameObject item = new GameObject(displayName + "_Item");
         item.transform.SetParent(parent, false);
@@ -481,12 +610,29 @@ public class MainUIManager : MonoBehaviour
 
         item.AddComponent<Button>();
 
-        // Name Text
+        // Icon Image (상단 60%)
+        if (icon != null)
+        {
+            GameObject iconObj = new GameObject("Icon");
+            iconObj.transform.SetParent(item.transform, false);
+            RectTransform iconRt = iconObj.AddComponent<RectTransform>();
+            iconRt.anchorMin = new Vector2(0.1f, 0.35f);
+            iconRt.anchorMax = new Vector2(0.9f, 0.95f);
+            iconRt.offsetMin = Vector2.zero;
+            iconRt.offsetMax = Vector2.zero;
+
+            Image iconImg = iconObj.AddComponent<Image>();
+            iconImg.sprite = icon;
+            iconImg.preserveAspect = true;
+            iconImg.raycastTarget = false;
+        }
+
+        // Name Text (하단 35%)
         GameObject nameObj = new GameObject("Name");
         nameObj.transform.SetParent(item.transform, false);
         RectTransform nameRt = nameObj.AddComponent<RectTransform>();
         nameRt.anchorMin = new Vector2(0, 0);
-        nameRt.anchorMax = new Vector2(1, 0.4f);
+        nameRt.anchorMax = new Vector2(1, 0.35f);
         nameRt.offsetMin = new Vector2(2, 2);
         nameRt.offsetMax = new Vector2(-2, 0);
 
@@ -501,15 +647,15 @@ public class MainUIManager : MonoBehaviour
         return item;
     }
 
-    private void OnManualPrefabClicked(GameObject prefab, GameObject item, int tabIndex)
+    private void OnPortalClicked(GameObject item, int tabIndex)
     {
         SelectDockItem(item);
         selectedInstrumentData = null;
 
         if (ObjectPlacer.Instance != null)
         {
-            // SetSelectedPrefab이 instrumentData도 null로 설정하므로 별도 호출 불필요
-            ObjectPlacer.Instance.SetSelectedPrefab(prefab);
+            // 포탈 배치 모드 시작
+            ObjectPlacer.Instance.StartPortalPlacement();
         }
     }
 
@@ -554,7 +700,7 @@ public class MainUIManager : MonoBehaviour
     {
         if (ObjectPlacer.Instance != null)
             return ObjectPlacer.Instance.GetCurrentMode();
-        return ObjectPlacer.PlacementMode.Select;
+        return ObjectPlacer.PlacementMode.Play;
     }
 
     /// <summary>

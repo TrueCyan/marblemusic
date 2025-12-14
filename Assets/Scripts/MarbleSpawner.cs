@@ -63,7 +63,9 @@ public class MarbleSpawner : MonoBehaviour
         if (marble != null)
         {
             marble.SetColor(marbleColor);
-            marble.SetVelocity(initialVelocity);
+            // 스포너 콜라이더를 무시하도록 전달
+            Collider2D myCollider = GetComponent<Collider2D>();
+            marble.Initialize(spawnPosition, initialVelocity, myCollider);
         }
 
         // 버튼 클릭 피드백
@@ -181,6 +183,22 @@ public class MarbleSpawner : MonoBehaviour
     public bool IsAutoSpawnActive()
     {
         return isActive;
+    }
+
+    /// <summary>
+    /// 초기 속도 반환
+    /// </summary>
+    public Vector2 GetInitialVelocity()
+    {
+        return initialVelocity;
+    }
+
+    /// <summary>
+    /// 스폰 오프셋 반환
+    /// </summary>
+    public Vector2 GetSpawnOffset()
+    {
+        return spawnOffset;
     }
 
 #if UNITY_EDITOR

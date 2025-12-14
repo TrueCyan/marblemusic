@@ -19,7 +19,13 @@
       "Bash(set:*)",
       "Skill(unity-prefab-scene)",
       "Bash(C:UsersTRUECYANanaconda3python.exe:*)",
-      "Bash(/c/Users/TRUECYAN/anaconda3/python.exe:*)"
+      "Bash(/c/Users/TRUECYAN/anaconda3/python.exe:*)",
+      "Bash(prefab-tool set:*)",
+      "Bash(prefab-tool:*)",
+      "Bash(git mv:*)",
+      "Bash(for p in Xylophone Synth Chime Bass)",
+      "Bash(do echo \"=== $p ===\")",
+      "Bash(ls:*)"
     ],
     "deny": [],
     "ask": []

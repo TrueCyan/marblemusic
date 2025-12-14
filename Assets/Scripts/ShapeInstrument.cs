@@ -18,7 +18,7 @@ public enum ShapeType
 /// <summary>
 /// 도형 기반 악기 오브젝트 - 런타임에 도형 생성 및 콜라이더 자동 생성
 /// </summary>
-[RequireComponent(typeof(PolygonCollider2D))]
+[RequireComponent(typeof(CircleCollider2D))]
 public class ShapeInstrument : InstrumentObject
 {
     [Header("Shape Settings")]
@@ -27,14 +27,14 @@ public class ShapeInstrument : InstrumentObject
     [SerializeField] private Color shapeColor = Color.white;
     [SerializeField] private int circleSegments = 32; // 원의 세그먼트 수
 
-    private PolygonCollider2D polygonCollider;
+    private CircleCollider2D circleCollider;
     private MeshFilter meshFilter;
     private MeshRenderer meshRenderer;
 
     protected override void Awake()
     {
         base.Awake();
-        polygonCollider = GetComponent<PolygonCollider2D>();
+        circleCollider = GetComponent<CircleCollider2D>();
 
         // SpriteRenderer가 없으면 Mesh 기반 렌더링 사용
         if (spriteRenderer == null)
@@ -70,17 +70,16 @@ public class ShapeInstrument : InstrumentObject
     /// </summary>
     public void GenerateShape()
     {
-        Vector2[] points = GetShapePoints(shapeType);
-
-        // 콜라이더 설정
-        if (polygonCollider != null)
+        // CircleCollider2D 설정 - 항상 원형 콜라이더 사용
+        if (circleCollider != null)
         {
-            polygonCollider.SetPath(0, points);
+            circleCollider.radius = size * 0.5f;
         }
 
         // 메시 생성 (SpriteRenderer가 없는 경우)
         if (spriteRenderer == null && meshFilter != null)
         {
+            Vector2[] points = GetShapePoints(shapeType);
             Mesh mesh = CreateMeshFromPoints(points);
             meshFilter.mesh = mesh;
 
@@ -286,7 +285,7 @@ public class ShapeInstrument : InstrumentObject
     private void OnValidate()
     {
         // 에디터에서 값 변경 시 도형 재생성
-        if (Application.isPlaying && polygonCollider != null)
+        if (Application.isPlaying && circleCollider != null)
         {
             GenerateShape();
         }

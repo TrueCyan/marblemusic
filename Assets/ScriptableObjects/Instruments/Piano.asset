@@ -14,7 +14,7 @@ MonoBehaviour:
   m_EditorClassIdentifier:
   instrumentName: Piano
   prefab: {fileID: 4091503084875554766, guid: 20987098fd1de2d469205cc41c803c61, type: 3}
-  icon: {fileID: 0}
+  icon: {fileID: -7895058522316621897, guid: 368f3bc2469096243af42430486e935c, type: 3}
   samples:
   - midiNote: 21
     clip: {fileID: 8300000, guid: 92d3ca4519267ea4da88c6321a83140f, type: 3}

@@ -33,11 +33,54 @@ public class InstrumentObject : MonoBehaviour
         if (spriteRenderer != null)
         {
             originalColor = spriteRenderer.color;
+            // 버블 셰이더 설정 (종횡비 + 콜라이더 크기에 맞춘 버블 반지름)
+            SetupBubbleShader();
         }
         originalScale = transform.localScale;
 
         // AudioSource 풀 초기화
         InitializeAudioPool();
+    }
+
+    /// <summary>
+    /// 버블 셰이더의 종횡비와 크기를 콜라이더에 맞게 설정
+    /// </summary>
+    protected void SetupBubbleShader()
+    {
+        if (spriteRenderer == null || spriteRenderer.sprite == null) return;
+
+        Sprite sprite = spriteRenderer.sprite;
+        float pixelWidth = sprite.rect.width;
+        float pixelHeight = sprite.rect.height;
+
+        if (pixelHeight <= 0) return;
+
+        // 종횡비 계산
+        float aspectRatio = pixelWidth / pixelHeight;
+
+        // 스프라이트의 월드 크기 계산
+        float worldWidth = pixelWidth / sprite.pixelsPerUnit;
+        float worldHeight = pixelHeight / sprite.pixelsPerUnit;
+
+        // CircleCollider2D 반지름 가져오기 (기본값 0.5)
+        float colliderRadius = 0.5f;
+        CircleCollider2D circleCollider = GetComponent<CircleCollider2D>();
+        if (circleCollider != null)
+        {
+            colliderRadius = circleCollider.radius;
+        }
+
+        // 콜라이더 반지름을 UV 공간으로 변환
+        // UV 공간에서 0.5는 스프라이트의 절반 크기
+        // 콜라이더 반지름 / 스프라이트 절반 크기 * 0.5 = UV 반지름
+        float halfWorldSize = Mathf.Max(worldWidth, worldHeight) / 2f;
+        float bubbleRadiusUV = (colliderRadius / halfWorldSize) * 0.5f;
+
+        MaterialPropertyBlock mpb = new MaterialPropertyBlock();
+        spriteRenderer.GetPropertyBlock(mpb);
+        mpb.SetFloat("_AspectRatio", aspectRatio);
+        mpb.SetFloat("_BubbleRadius", bubbleRadiusUV);
+        spriteRenderer.SetPropertyBlock(mpb);
     }
 
     /// <summary>

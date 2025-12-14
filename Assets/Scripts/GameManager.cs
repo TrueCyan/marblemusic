@@ -7,10 +7,11 @@ public class GameManager : MonoBehaviour
 {
     public static GameManager Instance { get; private set; }
 
-    [Header("Prefabs")]
+    [Header("Prefabs (Non-Instrument)")]
     [SerializeField] private GameObject marblePrefab;
-    [SerializeField] private GameObject[] instrumentPrefabs;
     [SerializeField] private GameObject spawnerPrefab;
+    [SerializeField] private GameObject portalAPrefab;
+    [SerializeField] private GameObject portalBPrefab;
 
     [Header("Global Settings")]
     [SerializeField] private float globalBPM = 120f;
@@ -24,6 +25,9 @@ public class GameManager : MonoBehaviour
     public float GlobalBPM => globalBPM;
     public bool IsPaused => isPaused;
     public GameObject MarblePrefab => marblePrefab;
+    public GameObject SpawnerPrefab => spawnerPrefab;
+    public GameObject PortalAPrefab => portalAPrefab;
+    public GameObject PortalBPrefab => portalBPrefab;
 
     private void Awake()
     {
@@ -52,11 +56,6 @@ public class GameManager : MonoBehaviour
             audioManager = audioObj.AddComponent<AudioManager>();
         }
 
-        // ObjectPlacer에 프리팹 전달
-        if (objectPlacer != null && instrumentPrefabs != null)
-        {
-            // ObjectPlacer는 Inspector에서 프리팹을 직접 설정
-        }
 
         Debug.Log("Game Initialized - BPM: " + globalBPM);
     }

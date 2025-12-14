@@ -11,9 +11,9 @@ MonoBehaviour:
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: b2c3d4e5f6789012345678abcdef0123, type: 3}
   m_Name: Clap
-  m_EditorClassIdentifier:
+  m_EditorClassIdentifier: 
   instrumentName: Clap
-  prefab: {fileID: 1278814736312916979, guid: 9e7ddb7132f42e44e8c4c8da9b55ac57, type: 3}
-  icon: {fileID: 0}
+  prefab: {fileID: 5335678411761756237, guid: 9114d97df67043d2a988f80394786168, type: 3}
+  icon: {fileID: 21300000, guid: dd8d4fe04b1a0314db12be6450093427, type: 3}
   soundClip: {fileID: 8300000, guid: 49eb16e6796758440a94a27bbbfd69b4, type: 3}
   volumeMultiplier: 1

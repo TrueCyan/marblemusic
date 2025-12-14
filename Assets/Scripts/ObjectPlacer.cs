@@ -2,43 +2,60 @@ using UnityEngine;
 using UnityEngine.EventSystems;
 
 /// <summary>
-/// 오브젝트 배치 시스템 - 드래그 앤 드롭으로 오브젝트 배치/이동/회전/삭제
+/// 오브젝트 배치 시스템 - 드래그 앤 드롭으로 오브젝트 배치/이동/삭제
+/// 포탈 연결 배치 지원, 휠로 오브젝트 회전, 박자 스냅 배치
 /// </summary>
 public class ObjectPlacer : MonoBehaviour
 {
     public static ObjectPlacer Instance { get; private set; }
 
-    [Header("Prefabs")]
-    [SerializeField] private GameObject[] instrumentPrefabs; // 악기 프리팹 배열 (레거시)
-    [SerializeField] private GameObject spawnerPrefab; // 스포너 프리팹
-    [SerializeField] private GameObject marblePrefab; // 구슬 프리팹
+    // GameManager에서 프리팹 참조
+    private GameObject SpawnerPrefab => GameManager.Instance?.SpawnerPrefab;
+    private GameObject PortalAPrefab => GameManager.Instance?.PortalAPrefab;
+    private GameObject PortalBPrefab => GameManager.Instance?.PortalBPrefab;
 
     [Header("Placement Settings")]
     [SerializeField] private LayerMask placementLayer;
-    [SerializeField] private float gridSize = 0.5f; // 그리드 스냅 크기 (0이면 비활성화)
+    [SerializeField] private float gridSize = 0.5f;
     [SerializeField] private bool snapToGrid = false;
+    [SerializeField] private float rotationStep = 15f;
+
+    [Header("Beat Snap Settings")]
+    [SerializeField] private bool enableBeatSnap = true;
+    [SerializeField] private float beatSnapDistance = 0.8f; // 박자 마커 스냅 거리
+    [SerializeField] private float instrumentRadius = 0.5f; // 악기 콜라이더 반지름 (비눗방울)
+    [SerializeField] private float marbleRadius = 0.15f; // 구슬 반지름
+    [SerializeField] private Color snapIndicatorColor = new Color(0f, 1f, 0.5f, 0.8f);
+    [SerializeField] private float bounceAngleSnapStep = 15f; // 튕기는 각도 스냅 단위 (도)
 
     [Header("Current State")]
-    [SerializeField] private PlacementMode currentMode = PlacementMode.Select;
-    [SerializeField] private int selectedPrefabIndex = 0;
-    [SerializeField] private int currentNoteIndex = 0; // 멜로디 악기용 음정 인덱스 (0-11)
+    [SerializeField] private PlacementMode currentMode = PlacementMode.Play;
+    [SerializeField] private int currentNoteIndex = 0;
 
-    // InstrumentData 기반 배치 시스템
-    private GameObject currentSelectedPrefab; // 현재 선택된 프리팹 (직접 설정)
-    private InstrumentData currentInstrumentData; // 현재 선택된 악기 데이터
+    private GameObject currentSelectedPrefab;
+    private InstrumentData currentInstrumentData;
 
-    private GameObject previewObject; // 배치 미리보기 오브젝트
-    private GameObject selectedObject; // 현재 선택된 오브젝트
+    private GameObject previewObject;
+    private GameObject selectedObject;
     private Camera mainCamera;
     private bool isDragging = false;
     private Vector3 dragOffset;
 
+    // 포탈 연결 배치용
+    private bool isPlacingPortal = false;
+    private Portal placedPortalA = null;
+
+    // 박자 스냅 관련
+    private TrajectoryPredictor.BeatMarkerData currentSnapTarget = null;
+    private GameObject snapIndicator;
+    private LineRenderer snapLine;
+
     public enum PlacementMode
     {
-        Select,     // 선택/이동 모드
-        Place,      // 배치 모드
-        Delete,     // 삭제 모드
-        Rotate      // 회전 모드
+        Play,
+        Select,
+        Place,
+        Delete
     }
 
     private void Awake()
@@ -56,14 +73,15 @@ public class ObjectPlacer : MonoBehaviour
     private void Start()
     {
         mainCamera = Camera.main;
+        CreateSnapIndicator();
     }
 
     private void Update()
     {
-        // UI 위에서는 동작하지 않음
         if (EventSystem.current != null && EventSystem.current.IsPointerOverGameObject())
         {
             HidePreview();
+            HideSnapIndicator();
             return;
         }
 
@@ -71,6 +89,8 @@ public class ObjectPlacer : MonoBehaviour
 
         switch (currentMode)
         {
+            case PlacementMode.Play:
+                break;
             case PlacementMode.Select:
                 HandleSelectMode(mouseWorldPos);
                 break;
@@ -80,22 +100,82 @@ public class ObjectPlacer : MonoBehaviour
             case PlacementMode.Delete:
                 HandleDeleteMode(mouseWorldPos);
                 break;
-            case PlacementMode.Rotate:
-                HandleRotateMode(mouseWorldPos);
-                break;
         }
 
-        // 키보드 단축키
         HandleKeyboardInput();
+        HandleWheelInput(mouseWorldPos);
+    }
+
+    /// <summary>
+    /// 스냅 인디케이터 생성
+    /// </summary>
+    private void CreateSnapIndicator()
+    {
+        // 스냅 위치 표시 원
+        snapIndicator = new GameObject("SnapIndicator");
+        snapIndicator.transform.SetParent(transform);
+        SpriteRenderer sr = snapIndicator.AddComponent<SpriteRenderer>();
+        sr.sprite = CreateCircleSprite();
+        sr.color = snapIndicatorColor;
+        sr.sortingOrder = 15;
+        snapIndicator.transform.localScale = Vector3.one * (instrumentRadius * 2f + 0.1f);
+        snapIndicator.SetActive(false);
+
+        // 스냅 연결선
+        GameObject lineObj = new GameObject("SnapLine");
+        lineObj.transform.SetParent(snapIndicator.transform);
+        snapLine = lineObj.AddComponent<LineRenderer>();
+        snapLine.startWidth = 0.03f;
+        snapLine.endWidth = 0.03f;
+        snapLine.material = new Material(Shader.Find("Sprites/Default"));
+        snapLine.startColor = snapIndicatorColor;
+        snapLine.endColor = snapIndicatorColor;
+        snapLine.positionCount = 2;
+        snapLine.sortingOrder = 14;
+    }
+
+    /// <summary>
+    /// 원 스프라이트 생성
+    /// </summary>
+    private Sprite CreateCircleSprite()
+    {
+        int size = 64;
+        Texture2D texture = new Texture2D(size, size);
+        Color[] colors = new Color[size * size];
+
+        Vector2 center = new Vector2(size / 2f, size / 2f);
+        float radius = size / 2f - 2;
+
+        for (int y = 0; y < size; y++)
+        {
+            for (int x = 0; x < size; x++)
+            {
+                float dist = Vector2.Distance(new Vector2(x, y), center);
+                if (dist <= radius && dist > radius - 4)
+                {
+                    colors[y * size + x] = Color.white;
+                }
+                else
+                {
+                    colors[y * size + x] = Color.clear;
+                }
+            }
+        }
+
+        texture.SetPixels(colors);
+        texture.Apply();
+
+        return Sprite.Create(texture, new Rect(0, 0, size, size), new Vector2(0.5f, 0.5f), size);
     }
 
     private void HandleSelectMode(Vector3 mouseWorldPos)
     {
         if (Input.GetMouseButtonDown(0))
         {
-            // 오브젝트 선택
             Collider2D hit = Physics2D.OverlapPoint(mouseWorldPos);
-            if (hit != null && (hit.GetComponent<InstrumentObject>() != null || hit.GetComponent<MarbleSpawner>() != null))
+            if (hit != null && (hit.GetComponent<InstrumentObject>() != null ||
+                               hit.GetComponent<MarbleSpawner>() != null ||
+                               hit.GetComponent<Portal>() != null))
             {
                 SelectObject(hit.gameObject);
                 isDragging = true;
@@ -109,35 +189,55 @@ public class ObjectPlacer : MonoBehaviour
 
         if (Input.GetMouseButton(0) && isDragging && selectedObject != null)
         {
-            // 오브젝트 드래그
             Vector3 newPos = mouseWorldPos + dragOffset;
-            if (snapToGrid && gridSize > 0)
+
+            // 드래그 중에도 박자 스냅 적용
+            if (enableBeatSnap && TrajectoryPredictor.Instance != null)
+            {
+                var snapResult = TryGetBeatSnapPosition(newPos);
+                if (snapResult.HasValue)
+                {
+                    newPos = snapResult.Value;
+                    ShowSnapIndicator(currentSnapTarget);
+                }
+                else
+                {
+                    HideSnapIndicator();
+                }
+            }
+
+            if (snapToGrid && gridSize > 0 && currentSnapTarget == null)
             {
                 newPos = SnapToGrid(newPos);
             }
+
             selectedObject.transform.position = newPos;
         }
 
         if (Input.GetMouseButtonUp(0))
         {
             isDragging = false;
+            HideSnapIndicator();
         }
     }
 
     private void HandlePlaceMode(Vector3 mouseWorldPos)
     {
-        // 미리보기 업데이트
         UpdatePreview(mouseWorldPos);
+
+        if (isPlacingPortal && placedPortalA != null)
+        {
+            placedPortalA.ShowConnectionLineTo(mouseWorldPos);
+        }
 
         if (Input.GetMouseButtonDown(0))
         {
             PlaceObject(mouseWorldPos);
         }
 
-        if (Input.GetMouseButtonDown(1))
+        if (Input.GetMouseButtonDown(1) || Input.GetKeyDown(KeyCode.Escape))
         {
-            // 우클릭으로 배치 취소
-            SetMode(PlacementMode.Select);
+            CancelPlacement();
         }
     }
 
@@ -146,108 +246,349 @@ public class ObjectPlacer : MonoBehaviour
         if (Input.GetMouseButtonDown(0))
         {
             Collider2D hit = Physics2D.OverlapPoint(mouseWorldPos);
-            if (hit != null && (hit.GetComponent<InstrumentObject>() != null || hit.GetComponent<MarbleSpawner>() != null))
+            if (hit != null)
             {
-                Destroy(hit.gameObject);
+                Portal portal = hit.GetComponent<Portal>();
+                if (portal != null)
+                {
+                    Portal linked = portal.GetLinkedPortal();
+                    if (linked != null)
+                    {
+                        Destroy(linked.gameObject);
+                    }
+                    Destroy(portal.gameObject);
+                    return;
+                }
+
+                if (hit.GetComponent<InstrumentObject>() != null || hit.GetComponent<MarbleSpawner>() != null)
+                {
+                    Destroy(hit.gameObject);
+                }
             }
         }
     }
 
-    private void HandleRotateMode(Vector3 mouseWorldPos)
+    private void HandleWheelInput(Vector3 mouseWorldPos)
     {
-        if (Input.GetMouseButtonDown(0))
+        float scroll = Input.mouseScrollDelta.y;
+        if (scroll == 0) return;
+
+        if (Input.GetKey(KeyCode.LeftShift) || Input.GetKey(KeyCode.RightShift))
         {
-            Collider2D hit = Physics2D.OverlapPoint(mouseWorldPos);
-            if (hit != null)
-            {
-                SelectObject(hit.gameObject);
-            }
+            return;
         }
 
-        if (selectedObject != null)
+        if (currentMode == PlacementMode.Place && previewObject != null)
         {
-            // 마우스 스크롤로 회전
-            float scroll = Input.mouseScrollDelta.y;
-            if (scroll != 0)
-            {
-                selectedObject.transform.Rotate(0, 0, scroll * 15f);
-            }
+            previewObject.transform.Rotate(0, 0, -scroll * rotationStep);
+            return;
+        }
+
+        if (currentMode == PlacementMode.Select && selectedObject != null)
+        {
+            selectedObject.transform.Rotate(0, 0, -scroll * rotationStep);
+            return;
         }
     }
 
     private void HandleKeyboardInput()
     {
-        // 모드 전환 단축키
-        if (Input.GetKeyDown(KeyCode.Q)) SetMode(PlacementMode.Select);
-        if (Input.GetKeyDown(KeyCode.W)) SetMode(PlacementMode.Place);
-        if (Input.GetKeyDown(KeyCode.E)) SetMode(PlacementMode.Delete);
-        if (Input.GetKeyDown(KeyCode.R)) SetMode(PlacementMode.Rotate);
+        if (Input.GetKeyDown(KeyCode.Q)) SetMode(PlacementMode.Play);
+        if (Input.GetKeyDown(KeyCode.W)) SetMode(PlacementMode.Select);
+        if (Input.GetKeyDown(KeyCode.E)) SetMode(PlacementMode.Place);
+        if (Input.GetKeyDown(KeyCode.R)) SetMode(PlacementMode.Delete);
 
-        // 선택된 오브젝트 회전/삭제
+        if (Input.GetKeyDown(KeyCode.Escape))
+        {
+            CancelPlacement();
+        }
+
         if (selectedObject != null)
         {
             if (Input.GetKeyDown(KeyCode.Delete) || Input.GetKeyDown(KeyCode.Backspace))
             {
+                Portal portal = selectedObject.GetComponent<Portal>();
+                if (portal != null)
+                {
+                    Portal linked = portal.GetLinkedPortal();
+                    if (linked != null)
+                    {
+                        Destroy(linked.gameObject);
+                    }
+                }
                 Destroy(selectedObject);
                 selectedObject = null;
             }
 
-            // 화살표 키로 회전
             if (Input.GetKey(KeyCode.LeftArrow))
                 selectedObject.transform.Rotate(0, 0, 90 * Time.deltaTime);
             if (Input.GetKey(KeyCode.RightArrow))
                 selectedObject.transform.Rotate(0, 0, -90 * Time.deltaTime);
         }
 
-        // 프리팹 선택 (숫자키)
-        for (int i = 0; i < 9; i++)
+    }
+
+    /// <summary>
+    /// 박자 스냅 위치 계산
+    /// </summary>
+    private Vector3? TryGetBeatSnapPosition(Vector3 mousePos)
+    {
+        if (TrajectoryPredictor.Instance == null) return null;
+
+        var nearestMarker = TrajectoryPredictor.Instance.GetNearestBeatMarker(mousePos, beatSnapDistance);
+
+        if (nearestMarker != null)
         {
-            if (Input.GetKeyDown(KeyCode.Alpha1 + i))
+            currentSnapTarget = nearestMarker;
+
+            // 박자 마커 위치에서 악기 중심 위치 계산
+            // 마우스 방향으로 악기 배치 (충돌점이 정확히 마커 위치가 되도록)
+            Vector2 markerPos = nearestMarker.position;
+            Vector2 mouseDir = ((Vector2)mousePos - markerPos);
+
+            // 마우스가 마커와 거의 같은 위치면 속도 방향 사용
+            if (mouseDir.magnitude < 0.01f)
             {
-                SelectPrefab(i);
+                mouseDir = -nearestMarker.velocity.normalized;
             }
+            else
+            {
+                // 각도 스냅 적용
+                float angle = Mathf.Atan2(mouseDir.y, mouseDir.x) * Mathf.Rad2Deg;
+                angle = SnapAngle(angle, bounceAngleSnapStep);
+                float rad = angle * Mathf.Deg2Rad;
+                mouseDir = new Vector2(Mathf.Cos(rad), Mathf.Sin(rad));
+            }
+
+            // 악기 중심 = 마커 위치 + 방향 * (악기 반지름 + 구슬 반지름)
+            float totalRadius = instrumentRadius + marbleRadius;
+            Vector3 snapPos = (Vector3)(markerPos + mouseDir * totalRadius);
+            snapPos.z = 0;
+
+            return snapPos;
+        }
+
+        currentSnapTarget = null;
+        return null;
+    }
+
+    /// <summary>
+    /// 각도를 주어진 스텝 단위로 스냅
+    /// </summary>
+    private float SnapAngle(float angle, float step)
+    {
+        return Mathf.Round(angle / step) * step;
+    }
+
+    /// <summary>
+    /// 스냅 인디케이터 표시
+    /// </summary>
+    private void ShowSnapIndicator(TrajectoryPredictor.BeatMarkerData marker)
+    {
+        if (snapIndicator == null || marker == null) return;
+
+        snapIndicator.SetActive(true);
+        snapIndicator.transform.position = marker.position;
+
+        // 연결선 업데이트
+        if (snapLine != null && previewObject != null)
+        {
+            snapLine.SetPosition(0, marker.position);
+            snapLine.SetPosition(1, previewObject.transform.position);
+        }
+        else if (snapLine != null && selectedObject != null)
+        {
+            snapLine.SetPosition(0, marker.position);
+            snapLine.SetPosition(1, selectedObject.transform.position);
         }
     }
 
     /// <summary>
-    /// 오브젝트 배치
+    /// 스냅 인디케이터 숨기기
     /// </summary>
+    private void HideSnapIndicator()
+    {
+        if (snapIndicator != null)
+        {
+            snapIndicator.SetActive(false);
+        }
+        currentSnapTarget = null;
+    }
+
+    private void CancelPlacement()
+    {
+        if (isPlacingPortal && placedPortalA != null)
+        {
+            placedPortalA.HideConnectionLine();
+            Destroy(placedPortalA.gameObject);
+            placedPortalA = null;
+            isPlacingPortal = false;
+        }
+
+        HidePreview();
+        HideSnapIndicator();
+        SetMode(PlacementMode.Select);
+    }
+
     private void PlaceObject(Vector3 position)
     {
         GameObject prefab = GetCurrentPrefab();
         if (prefab == null) return;
 
-        if (snapToGrid && gridSize > 0)
+        // 박자 스냅 적용
+        if (enableBeatSnap && TrajectoryPredictor.Instance != null)
+        {
+            var snapResult = TryGetBeatSnapPosition(position);
+            if (snapResult.HasValue)
+            {
+                position = snapResult.Value;
+            }
+        }
+
+        if (snapToGrid && gridSize > 0 && currentSnapTarget == null)
         {
             position = SnapToGrid(position);
         }
 
         position.z = 0;
-        GameObject placed = Instantiate(prefab, position, Quaternion.identity);
 
-        // InstrumentObject 설정
+        if (isPlacingPortal)
+        {
+            PlacePortalB(position);
+            return;
+        }
+
+        if (prefab == PortalAPrefab || (prefab.GetComponent<Portal>() != null && !isPlacingPortal))
+        {
+            StartPortalPlacement(position);
+            return;
+        }
+
+        Quaternion rotation = previewObject != null ? previewObject.transform.rotation : Quaternion.identity;
+        GameObject placed = Instantiate(prefab, position, rotation);
+
         InstrumentObject instrument = placed.GetComponent<InstrumentObject>();
         if (instrument != null)
         {
-            // InstrumentData 설정
             if (currentInstrumentData != null)
             {
                 instrument.SetInstrumentData(currentInstrumentData);
             }
 
-            // 멜로디 악기인 경우 noteIndex 설정
             if (instrument.IsMelodyInstrument())
             {
                 instrument.SetNoteIndex(currentNoteIndex);
             }
         }
+
+        // 배치 후 예측 새로고침
+        if (TrajectoryPredictor.Instance != null && TrajectoryPredictor.Instance.IsVisible())
+        {
+            TrajectoryPredictor.Instance.RefreshPredictions();
+        }
+
+        HideSnapIndicator();
     }
 
-    /// <summary>
-    /// 미리보기 오브젝트 업데이트
-    /// </summary>
+    private void StartPortalPlacement(Vector3 position)
+    {
+        if (PortalAPrefab == null) return;
+
+        Quaternion rotation = previewObject != null ? previewObject.transform.rotation : Quaternion.identity;
+        GameObject portalAObj = Instantiate(PortalAPrefab, position, rotation);
+        placedPortalA = portalAObj.GetComponent<Portal>();
+
+        if (placedPortalA != null)
+        {
+            placedPortalA.SetPortalType(Portal.PortalType.Entry);
+            isPlacingPortal = true;
+
+            HidePreview();
+            if (PortalBPrefab != null)
+            {
+                previewObject = Instantiate(PortalBPrefab);
+                previewObject.name = PortalBPrefab.name + "_Preview";
+
+                Rigidbody2D rb = previewObject.GetComponent<Rigidbody2D>();
+                if (rb != null) rb.simulated = false;
+
+                Collider2D col = previewObject.GetComponent<Collider2D>();
+                if (col != null) col.enabled = false;
+
+                SetObjectAlpha(previewObject, 0.5f);
+            }
+        }
+    }
+
+    private void PlacePortalB(Vector3 position)
+    {
+        if (PortalBPrefab == null || placedPortalA == null) return;
+
+        Quaternion rotation = previewObject != null ? previewObject.transform.rotation : Quaternion.identity;
+        GameObject portalBObj = Instantiate(PortalBPrefab, position, rotation);
+        Portal portalB = portalBObj.GetComponent<Portal>();
+
+        if (portalB != null)
+        {
+            portalB.SetPortalType(Portal.PortalType.Exit);
+
+            placedPortalA.SetLinkedPortal(portalB);
+            portalB.SetLinkedPortal(placedPortalA);
+
+            placedPortalA.HideConnectionLine();
+        }
+
+        placedPortalA = null;
+        isPlacingPortal = false;
+        HidePreview();
+        SetMode(PlacementMode.Select);
+    }
+
     private void UpdatePreview(Vector3 position)
     {
+        // 박자 스냅 체크
+        if (enableBeatSnap && TrajectoryPredictor.Instance != null)
+        {
+            var snapResult = TryGetBeatSnapPosition(position);
+            if (snapResult.HasValue)
+            {
+                position = snapResult.Value;
+                ShowSnapIndicator(currentSnapTarget);
+            }
+            else
+            {
+                HideSnapIndicator();
+            }
+        }
+
+        if (isPlacingPortal)
+        {
+            if (previewObject == null && PortalBPrefab != null)
+            {
+                previewObject = Instantiate(PortalBPrefab);
+                previewObject.name = PortalBPrefab.name + "_Preview";
+
+                Rigidbody2D rb = previewObject.GetComponent<Rigidbody2D>();
+                if (rb != null) rb.simulated = false;
+
+                Collider2D col = previewObject.GetComponent<Collider2D>();
+                if (col != null) col.enabled = false;
+
+                SetObjectAlpha(previewObject, 0.5f);
+            }
+
+            if (previewObject != null)
+            {
+                if (snapToGrid && gridSize > 0 && currentSnapTarget == null)
+                {
+                    position = SnapToGrid(position);
+                }
+                position.z = 0;
+                previewObject.transform.position = position;
+            }
+            return;
+        }
+
         GameObject prefab = GetCurrentPrefab();
         if (prefab == null)
         {
@@ -261,18 +602,16 @@ public class ObjectPlacer : MonoBehaviour
             previewObject = Instantiate(prefab);
             previewObject.name = prefab.name + "_Preview";
 
-            // 미리보기는 물리/충돌 비활성화
             Rigidbody2D rb = previewObject.GetComponent<Rigidbody2D>();
             if (rb != null) rb.simulated = false;
 
             Collider2D col = previewObject.GetComponent<Collider2D>();
             if (col != null) col.enabled = false;
 
-            // 반투명하게 표시
             SetObjectAlpha(previewObject, 0.5f);
         }
 
-        if (snapToGrid && gridSize > 0)
+        if (snapToGrid && gridSize > 0 && currentSnapTarget == null)
         {
             position = SnapToGrid(position);
         }
@@ -325,39 +664,20 @@ public class ObjectPlacer : MonoBehaviour
 
     private GameObject GetCurrentPrefab()
     {
-        // 직접 설정된 프리팹 우선
         if (currentSelectedPrefab != null)
         {
             return currentSelectedPrefab;
         }
 
-        // 레거시: instrumentPrefabs 배열에서 가져오기
-        if (instrumentPrefabs != null && selectedPrefabIndex < instrumentPrefabs.Length)
-        {
-            return instrumentPrefabs[selectedPrefabIndex];
-        }
         return null;
     }
 
-    /// <summary>
-    /// 오브젝트 선택
-    /// </summary>
     public void SelectObject(GameObject obj)
     {
         DeselectObject();
         selectedObject = obj;
-
-        // 선택 표시 (외곽선 등)
-        SpriteRenderer sr = obj.GetComponent<SpriteRenderer>();
-        if (sr != null)
-        {
-            // 선택 효과 적용 가능
-        }
     }
 
-    /// <summary>
-    /// 선택 해제
-    /// </summary>
     public void DeselectObject()
     {
         if (selectedObject != null)
@@ -367,151 +687,177 @@ public class ObjectPlacer : MonoBehaviour
         selectedObject = null;
     }
 
-    /// <summary>
-    /// 모드 설정
-    /// </summary>
     public void SetMode(PlacementMode mode)
     {
+        // 모드 변경 시 포탈 배치 취소
+        if (currentMode == PlacementMode.Place && mode != PlacementMode.Place)
+        {
+            if (isPlacingPortal && placedPortalA != null)
+            {
+                placedPortalA.HideConnectionLine();
+                Destroy(placedPortalA.gameObject);
+                placedPortalA = null;
+                isPlacingPortal = false;
+            }
+        }
+
+        PlacementMode previousMode = currentMode;
         currentMode = mode;
 
         if (mode != PlacementMode.Place)
         {
             HidePreview();
+            HideSnapIndicator();
         }
-    }
 
-    /// <summary>
-    /// 배치할 프리팹 선택
-    /// </summary>
-    public void SelectPrefab(int index)
-    {
-        if (instrumentPrefabs != null && index < instrumentPrefabs.Length)
+        // Select/Place 모드에서 경로 예측 표시
+        if ((mode == PlacementMode.Select || mode == PlacementMode.Place) && TrajectoryPredictor.Instance != null)
         {
-            selectedPrefabIndex = index;
-            SetMode(PlacementMode.Place);
+            TrajectoryPredictor.Instance.ShowAllSpawnerPredictions();
+        }
+        else if (mode == PlacementMode.Play && TrajectoryPredictor.Instance != null)
+        {
+            TrajectoryPredictor.Instance.HideAllPredictions();
         }
     }
 
-    /// <summary>
-    /// 스포너 배치 모드 활성화
-    /// </summary>
+
     public void SelectSpawnerPrefab()
     {
-        // 스포너를 instrumentPrefabs 배열의 특정 인덱스에 추가하거나
-        // 별도로 처리할 수 있음
+        if (SpawnerPrefab == null)
+        {
+            Debug.LogWarning("Spawner prefab is not assigned in GameManager!");
+            return;
+        }
+        currentSelectedPrefab = SpawnerPrefab;
+        currentInstrumentData = null;
         SetMode(PlacementMode.Place);
     }
 
-    /// <summary>
-    /// 그리드 스냅 토글
-    /// </summary>
+    public void StartPortalPlacement()
+    {
+        if (PortalAPrefab == null)
+        {
+            Debug.LogWarning("Portal A prefab is not assigned!");
+            return;
+        }
+
+        currentSelectedPrefab = PortalAPrefab;
+        currentInstrumentData = null;
+        isPlacingPortal = false;
+        placedPortalA = null;
+        SetMode(PlacementMode.Place);
+    }
+
     public void ToggleGridSnap()
     {
         snapToGrid = !snapToGrid;
     }
 
-    /// <summary>
-    /// 현재 모드 반환
-    /// </summary>
+    public void ToggleBeatSnap()
+    {
+        enableBeatSnap = !enableBeatSnap;
+    }
+
+    public bool IsBeatSnapEnabled()
+    {
+        return enableBeatSnap;
+    }
+
     public PlacementMode GetCurrentMode()
     {
         return currentMode;
     }
 
-    /// <summary>
-    /// 현재 선택된 오브젝트 반환
-    /// </summary>
     public GameObject GetSelectedObject()
     {
         return selectedObject;
     }
 
-    /// <summary>
-    /// 배치 가능한 프리팹 배열 설정
-    /// </summary>
-    public void SetPlaceablePrefabs(GameObject[] prefabs)
+    public bool IsWheelRotating()
     {
-        instrumentPrefabs = prefabs;
+        if (currentMode == PlacementMode.Place && previewObject != null)
+            return true;
+        if (currentMode == PlacementMode.Select && selectedObject != null)
+            return true;
+        return false;
     }
 
-    /// <summary>
-    /// 현재 프리팹 배열 반환
-    /// </summary>
-    public GameObject[] GetPlaceablePrefabs()
+    public bool IsPlacingPortal()
     {
-        return instrumentPrefabs;
+        return isPlacingPortal;
     }
 
-    /// <summary>
-    /// 선택된 프리팹 인덱스 반환
-    /// </summary>
-    public int GetSelectedPrefabIndex()
-    {
-        return selectedPrefabIndex;
-    }
 
-    /// <summary>
-    /// 멜로디 악기용 음정 인덱스 설정 (0-11: C, C#, D, D#, E, F, F#, G, G#, A, A#, B)
-    /// </summary>
+
+
     public void SetCurrentNoteIndex(int noteIndex)
     {
         currentNoteIndex = Mathf.Clamp(noteIndex, 0, 11);
     }
 
-    /// <summary>
-    /// 현재 음정 인덱스 반환
-    /// </summary>
     public int GetCurrentNoteIndex()
     {
         return currentNoteIndex;
     }
 
+    /// <summary>
+    /// 악기 반지름 설정 (비눗방울 크기)
+    /// </summary>
+    public void SetInstrumentRadius(float radius)
+    {
+        instrumentRadius = radius;
+        if (snapIndicator != null)
+        {
+            snapIndicator.transform.localScale = Vector3.one * (instrumentRadius * 2f + 0.1f);
+        }
+    }
+
     #region InstrumentData 기반 API
 
-    /// <summary>
-    /// 배치할 프리팹 직접 설정 (InstrumentData 없이)
-    /// </summary>
     public void SetSelectedPrefab(GameObject prefab)
     {
         currentSelectedPrefab = prefab;
         currentInstrumentData = null;
+        isPlacingPortal = false;
+        placedPortalA = null;
         SetMode(PlacementMode.Place);
     }
 
-    /// <summary>
-    /// 배치할 악기 데이터 설정 (프리팹 자동 설정)
-    /// </summary>
     public void SetSelectedInstrumentData(InstrumentData instrumentData)
     {
         currentInstrumentData = instrumentData;
         currentSelectedPrefab = instrumentData?.Prefab;
+        isPlacingPortal = false;
+        placedPortalA = null;
         SetMode(PlacementMode.Place);
     }
 
-    /// <summary>
-    /// 현재 선택된 악기 데이터 반환
-    /// </summary>
     public InstrumentData GetCurrentInstrumentData()
     {
         return currentInstrumentData;
     }
 
-    /// <summary>
-    /// 현재 선택된 프리팹 반환
-    /// </summary>
     public GameObject GetCurrentSelectedPrefab()
     {
         return currentSelectedPrefab;
     }
 
-    /// <summary>
-    /// 선택 초기화
-    /// </summary>
     public void ClearSelection()
     {
         currentSelectedPrefab = null;
         currentInstrumentData = null;
+        isPlacingPortal = false;
+
+        if (placedPortalA != null)
+        {
+            placedPortalA.HideConnectionLine();
+            Destroy(placedPortalA.gameObject);
+            placedPortalA = null;
+        }
+
         HidePreview();
+        HideSnapIndicator();
         SetMode(PlacementMode.Select);
     }
 

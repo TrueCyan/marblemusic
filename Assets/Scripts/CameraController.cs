@@ -2,6 +2,7 @@ using UnityEngine;
 
 /// <summary>
 /// 카메라 컨트롤러 - 줌, 패닝 기능
+/// Shift+휠로 항상 줌 가능, 오브젝트 선택/배치 중에는 휠이 회전으로 동작
 /// </summary>
 public class CameraController : MonoBehaviour
 {
@@ -47,16 +48,31 @@ public class CameraController : MonoBehaviour
 
         if (scroll != 0)
         {
-            // ObjectPlacer가 Rotate 모드가 아닐 때만 줌
-            if (ObjectPlacer.Instance != null &&
-                ObjectPlacer.Instance.GetCurrentMode() == ObjectPlacer.PlacementMode.Rotate)
+            // Shift 누르면 항상 줌
+            bool shiftHeld = Input.GetKey(KeyCode.LeftShift) || Input.GetKey(KeyCode.RightShift);
+
+            if (shiftHeld)
+            {
+                // Shift+휠은 항상 줌
+                ApplyZoom(scroll);
+                return;
+            }
+
+            // ObjectPlacer가 휠을 회전에 사용 중이면 줌하지 않음
+            if (ObjectPlacer.Instance != null && ObjectPlacer.Instance.IsWheelRotating())
             {
                 return;
             }
 
-            float newSize = cam.orthographicSize - scroll * zoomSpeed;
-            cam.orthographicSize = Mathf.Clamp(newSize, minZoom, maxZoom);
+            // 그 외의 경우 줌
+            ApplyZoom(scroll);
         }
+    }
+
+    private void ApplyZoom(float scroll)
+    {
+        float newSize = cam.orthographicSize - scroll * zoomSpeed;
+        cam.orthographicSize = Mathf.Clamp(newSize, minZoom, maxZoom);
     }
 
     private void HandlePan()

@@ -13,7 +13,7 @@ MonoBehaviour:
   m_Name: HiHat
   m_EditorClassIdentifier:
   instrumentName: HiHat
-  prefab: {fileID: 1278814736312916979, guid: 9e7ddb7132f42e44e8c4c8da9b55ac57, type: 3}
-  icon: {fileID: 0}
+  prefab: {fileID: 2390753827240912140, guid: 9c38cd04d2a849e8bb5818dc99048b40, type: 3}
+  icon: {fileID: 21300000, guid: 3e56d9a5549fa2442bdf0c5d370fc521, type: 3}
   soundClip: {fileID: 8300000, guid: 9f17eae80f604a1449c8ded791fd2064, type: 3}
   volumeMultiplier: 1

@@ -1,0 +1,151 @@
+using UnityEngine;
+using System.Collections.Generic;
+
+/// <summary>
+/// 구슬 물리 계산 공통 모듈
+/// Marble과 TrajectoryPredictor가 동일한 공식 사용
+/// </summary>
+public static class MarblePhysics
+{
+    // 물리 상수
+    public const float Radius = 0.05f;
+    public const float Bounciness = 0.5f;
+    public const float Friction = 0.2f;
+
+    /// <summary>
+    /// 프레임별 데이터 (경로 저장용)
+    /// </summary>
+    public struct FrameData
+    {
+        public float time;
+        public Vector2 position;
+        public Vector2 velocity;
+        public bool hasCollision;
+        public float preCollisionSpeed;
+
+        public FrameData(float t, Vector2 pos, Vector2 vel, bool collision = false, float preSpeed = 0f)
+        {
+            time = t;
+            position = pos;
+            velocity = vel;
+            hasCollision = collision;
+            preCollisionSpeed = preSpeed;
+        }
+    }
+
+    /// <summary>
+    /// 물리 시뮬레이션 결과 (단일 프레임용)
+    /// </summary>
+    public struct SimulationResult
+    {
+        public Vector2 position;
+        public Vector2 velocity;
+        public bool hasCollision;
+        public RaycastHit2D hit;
+    }
+
+    /// <summary>
+    /// 전체 경로 미리 계산
+    /// </summary>
+    public static List<FrameData> CalculateTrajectory(
+        Vector2 startPos,
+        Vector2 startVel,
+        float gravity,
+        float dt,
+        float maxTime,
+        Collider2D ignoreCollider = null)
+    {
+        List<FrameData> trajectory = new List<FrameData>();
+
+        Vector2 position = startPos;
+        Vector2 velocity = startVel;
+        float elapsedTime = 0f;
+
+        // 초기 프레임
+        trajectory.Add(new FrameData(0f, position, velocity));
+
+        int maxIterations = Mathf.CeilToInt(maxTime / dt) + 1;
+
+        for (int i = 0; i < maxIterations && elapsedTime < maxTime; i++)
+        {
+            float preCollisionSpeed = velocity.magnitude;
+
+            // 물리 시뮬레이션
+            var result = Simulate(position, velocity, dt, gravity, ignoreCollider);
+
+            position = result.position;
+            velocity = result.velocity;
+            elapsedTime += dt;
+
+            // 프레임 데이터 저장
+            trajectory.Add(new FrameData(
+                elapsedTime,
+                position,
+                velocity,
+                result.hasCollision,
+                preCollisionSpeed
+            ));
+
+            // 화면 밖으로 나가면 중지
+            if (position.y < -20f)
+            {
+                break;
+            }
+        }
+
+        return trajectory;
+    }
+
+    /// <summary>
+    /// 한 프레임의 물리 시뮬레이션 수행
+    /// </summary>
+    public static SimulationResult Simulate(Vector2 position, Vector2 velocity, float dt, float gravity, Collider2D ignoreCollider = null)
+    {
+        SimulationResult result = new SimulationResult();
+
+        // 중력 적용
+        velocity.y += gravity * dt;
+
+        // 이동량 계산
+        Vector2 movement = velocity * dt;
+
+        // 충돌 검사
+        RaycastHit2D hit = Physics2D.CircleCast(position, Radius, velocity.normalized, movement.magnitude);
+
+        // 트리거 또는 무시할 콜라이더 필터링
+        if (hit.collider != null && (hit.collider.isTrigger || hit.collider == ignoreCollider))
+        {
+            hit = default;
+        }
+
+        if (hit.collider != null)
+        {
+            // 충돌 발생
+            result.hasCollision = true;
+            result.hit = hit;
+
+            // 충돌 지점에서 반지름만큼 떨어진 곳으로 이동
+            result.position = hit.point + hit.normal * Radius;
+
+            // 반사 벡터 계산
+            velocity = Vector2.Reflect(velocity, hit.normal);
+            velocity *= Bounciness;
+
+            // 마찰 적용
+            Vector2 tangent = new Vector2(-hit.normal.y, hit.normal.x);
+            float tangentVelocity = Vector2.Dot(velocity, tangent);
+            velocity -= tangent * tangentVelocity * Friction;
+
+            result.velocity = velocity;
+        }
+        else
+        {
+            // 충돌 없음 - 정상 이동
+            result.hasCollision = false;
+            result.position = position + movement;
+            result.velocity = velocity;
+        }
+
+        return result;
+    }
+}

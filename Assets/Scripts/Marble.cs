@@ -1,63 +1,165 @@
 using UnityEngine;
+using System.Collections.Generic;
 
 /// <summary>
-/// 구슬 오브젝트 - 중력에 의해 떨어지며 악기에 부딪히면 소리를 트리거
+/// 구슬 오브젝트 - 미리 계산된 경로를 시간 기반으로 따라감
 /// </summary>
 public class Marble : MonoBehaviour
 {
     [Header("Settings")]
-    [SerializeField] private float lifetime = 10f; // 구슬 자동 삭제 시간
-    [SerializeField] private float minCollisionVelocity = 0.5f; // 소리를 내기 위한 최소 충돌 속도
+    [SerializeField] private float lifetime = 10f;
+    [SerializeField] private float minCollisionVelocity = 0.5f;
 
-    private Rigidbody2D rb;
     private SpriteRenderer spriteRenderer;
     private TrailRenderer trailRenderer;
 
+    // 미리 계산된 경로 데이터
+    private List<MarblePhysics.FrameData> trajectory;
+    private float elapsedTime;
+    private int currentFrameIndex;
+    private int lastCollisionFrameProcessed = -1;  // 마지막으로 처리한 충돌 프레임
+    private float gravity;
+
+    // 악기별 마지막 충돌 시간 (쿨다운 방식)
+    private Dictionary<InstrumentObject, float> instrumentCooldowns = new Dictionary<InstrumentObject, float>();
+    private const float HIT_COOLDOWN = 0.1f;  // 같은 악기 재충돌까지 최소 시간
+
     private void Awake()
     {
-        rb = GetComponent<Rigidbody2D>();
         spriteRenderer = GetComponent<SpriteRenderer>();
         trailRenderer = GetComponent<TrailRenderer>();
-
-        // 디버그: Rigidbody2D 상태 확인
-        if (rb != null)
-        {
-            Debug.Log($"[Marble] Awake - rb found, bodyType={rb.bodyType}, simulated={rb.simulated}, gravityScale={rb.gravityScale}");
-        }
-        else
-        {
-            Debug.LogError("[Marble] Awake - Rigidbody2D NOT FOUND!");
-        }
+        gravity = Physics2D.gravity.y;
     }
 
     private void Start()
     {
-        // 디버그: Start 시점 속도 확인
-        if (rb != null)
-        {
-            Debug.Log($"[Marble] Start - velocity={rb.linearVelocity}, position={transform.position}");
-        }
-
-        // 일정 시간 후 자동 삭제
         Destroy(gameObject, lifetime);
     }
 
-    private void OnCollisionEnter2D(Collision2D collision)
+    private void FixedUpdate()
     {
-        // 충돌 속도 계산
-        float collisionVelocity = collision.relativeVelocity.magnitude;
+        if (trajectory == null || trajectory.Count == 0) return;
 
-        if (collisionVelocity < minCollisionVelocity)
-            return;
+        Vector2 previousPosition = transform.position;
+        elapsedTime += Time.fixedDeltaTime;
 
-        // 악기 오브젝트인지 확인
-        InstrumentObject instrument = collision.gameObject.GetComponent<InstrumentObject>();
-        if (instrument != null)
+        int previousFrameIndex = currentFrameIndex;
+
+        // 현재 시간에 해당하는 프레임 찾기
+        while (currentFrameIndex < trajectory.Count - 1 &&
+               trajectory[currentFrameIndex + 1].time <= elapsedTime)
         {
-            // 충돌 속도에 따른 볼륨 계산 (0.3 ~ 1.0)
-            float volume = Mathf.Lerp(0.3f, 1f, Mathf.Clamp01(collisionVelocity / 10f));
-            instrument.PlaySound(volume, collision.contacts[0].point);
+            currentFrameIndex++;
         }
+
+        // 스킵된 프레임들의 충돌 체크 (프레임 스킵 시 충돌 놓치지 않도록)
+        for (int i = previousFrameIndex; i <= currentFrameIndex; i++)
+        {
+            CheckCollisionAtFrame(i);
+        }
+
+        // 현재 프레임과 다음 프레임 사이 보간
+        Vector2 newPosition;
+
+        if (currentFrameIndex < trajectory.Count - 1)
+        {
+            var current = trajectory[currentFrameIndex];
+            var next = trajectory[currentFrameIndex + 1];
+
+            float t = (elapsedTime - current.time) / (next.time - current.time);
+            t = Mathf.Clamp01(t);
+
+            newPosition = Vector2.Lerp(current.position, next.position, t);
+        }
+        else if (currentFrameIndex < trajectory.Count)
+        {
+            var last = trajectory[currentFrameIndex];
+            newPosition = last.position;
+        }
+        else
+        {
+            return;
+        }
+
+        transform.position = new Vector3(newPosition.x, newPosition.y, 0);
+
+        // 화면 밖으로 나가면 삭제
+        if (transform.position.y < -20f)
+        {
+            Destroy(gameObject);
+        }
+    }
+
+    /// <summary>
+    /// 특정 프레임의 충돌 체크
+    /// </summary>
+    private void CheckCollisionAtFrame(int frameIndex)
+    {
+        if (frameIndex < 0 || frameIndex >= trajectory.Count) return;
+        if (frameIndex <= lastCollisionFrameProcessed) return;
+
+        var frame = trajectory[frameIndex];
+        if (!frame.hasCollision) return;
+        if (frame.preCollisionSpeed < minCollisionVelocity) return;
+
+        lastCollisionFrameProcessed = frameIndex;
+
+        // 충돌 지점에서 가장 가까운 악기 찾기
+        Collider2D[] overlaps = Physics2D.OverlapCircleAll(frame.position, 1.0f);
+        InstrumentObject closestInstrument = null;
+        float closestDistance = float.MaxValue;
+
+        foreach (var col in overlaps)
+        {
+            InstrumentObject instrument = col.GetComponent<InstrumentObject>();
+            if (instrument != null)
+            {
+                float dist = Vector2.Distance(frame.position, col.transform.position);
+                if (dist < closestDistance)
+                {
+                    closestDistance = dist;
+                    closestInstrument = instrument;
+                }
+            }
+        }
+
+        // 가장 가까운 악기만 소리 재생
+        if (closestInstrument != null)
+        {
+            bool canHit = true;
+            if (instrumentCooldowns.TryGetValue(closestInstrument, out float lastHitTime))
+            {
+                canHit = (elapsedTime - lastHitTime) >= HIT_COOLDOWN;
+            }
+
+            if (canHit)
+            {
+                float volume = Mathf.Lerp(0.3f, 1f, Mathf.Clamp01(frame.preCollisionSpeed / 10f));
+                closestInstrument.PlaySound(volume, frame.position);
+                instrumentCooldowns[closestInstrument] = elapsedTime;
+            }
+        }
+    }
+
+    /// <summary>
+    /// 구슬 초기화 - 경로 미리 계산
+    /// </summary>
+    public void Initialize(Vector2 startPosition, Vector2 startVelocity, Collider2D ignoreCollider = null)
+    {
+        transform.position = new Vector3(startPosition.x, startPosition.y, 0);
+        elapsedTime = 0f;
+        currentFrameIndex = 0;
+        lastCollisionFrameProcessed = -1;
+
+        // 경로 미리 계산
+        trajectory = MarblePhysics.CalculateTrajectory(
+            startPosition,
+            startVelocity,
+            gravity,
+            Time.fixedDeltaTime,
+            lifetime,
+            ignoreCollider
+        );
     }
 
     /// <summary>
@@ -78,15 +180,14 @@ public class Marble : MonoBehaviour
     }
 
     /// <summary>
-    /// 초기 속도 설정
+    /// 초기 속도 설정 (레거시 - Initialize 사용 권장)
     /// </summary>
-    public void SetVelocity(Vector2 velocity)
+    public void SetVelocity(Vector2 vel)
     {
-        Debug.Log($"[Marble] SetVelocity called with {velocity}, rb={(rb != null ? "exists" : "NULL")}");
-        if (rb != null)
+        // Initialize가 호출되지 않은 경우 즉석 계산
+        if (trajectory == null)
         {
-            rb.linearVelocity = velocity;
-            Debug.Log($"[Marble] After SetVelocity: linearVelocity={rb.linearVelocity}");
+            Initialize(transform.position, vel);
         }
     }
 
@@ -95,6 +196,10 @@ public class Marble : MonoBehaviour
     /// </summary>
     public Vector2 GetVelocity()
     {
-        return rb != null ? rb.linearVelocity : Vector2.zero;
+        if (trajectory != null && currentFrameIndex < trajectory.Count)
+        {
+            return trajectory[currentFrameIndex].velocity;
+        }
+        return Vector2.zero;
     }
 }

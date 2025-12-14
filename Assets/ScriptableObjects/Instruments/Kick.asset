@@ -13,7 +13,7 @@ MonoBehaviour:
   m_Name: Kick
   m_EditorClassIdentifier:
   instrumentName: Kick
-  prefab: {fileID: 1278814736312916979, guid: 9e7ddb7132f42e44e8c4c8da9b55ac57, type: 3}
-  icon: {fileID: 0}
+  prefab: {fileID: 9118233840597773226, guid: dd078efe1a1a0bd4c81ae1829cecf740, type: 3}
+  icon: {fileID: 21300000, guid: fd9d51b71560b3c4fb19b24736f61cd5, type: 3}
   soundClip: {fileID: 8300000, guid: 64f4d9eeadd03cf428c0a0b29e82648a, type: 3}
   volumeMultiplier: 1

@@ -7,7 +7,7 @@ using System.Collections.Generic;
 public class Marble : MonoBehaviour
 {
     [Header("Settings")]
-    [SerializeField] private float lifetime = 10f;
+    [SerializeField] private float lifetime = 300f; // 5분
     [SerializeField] private float minCollisionVelocity = 0.5f;
 
     private SpriteRenderer spriteRenderer;
@@ -83,8 +83,8 @@ public class Marble : MonoBehaviour
 
         transform.position = new Vector3(newPosition.x, newPosition.y, 0);
 
-        // 화면 밖으로 나가면 삭제
-        if (transform.position.y < -20f)
+        // 너무 아래로 떨어지면 삭제
+        if (transform.position.y < -500f)
         {
             Destroy(gameObject);
         }

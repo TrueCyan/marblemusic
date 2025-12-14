@@ -10,8 +10,8 @@ public class TrajectoryPredictor : MonoBehaviour
     public static TrajectoryPredictor Instance { get; private set; }
 
     [Header("Prediction Settings")]
-    [SerializeField] private int maxIterations = 2000;
-    [SerializeField] private float maxPredictionTime = 20f;
+    [SerializeField] private int maxIterations = 50000;
+    [SerializeField] private float maxPredictionTime = 300f; // 5분
 
     [Header("Visual Settings")]
     [SerializeField] private Material lineMaterial;
@@ -246,8 +246,8 @@ public class TrajectoryPredictor : MonoBehaviour
                 nextBeatTime += beatInterval;
             }
 
-            // 화면 밖으로 나가면 중지
-            if (position.y < -20f)
+            // 너무 아래로 떨어지면 중지 (충분히 낮게 설정)
+            if (position.y < -500f)
             {
                 break;
             }

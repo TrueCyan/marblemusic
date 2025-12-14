@@ -1,9 +1,11 @@
 using UnityEngine;
 using UnityEngine.EventSystems;
+using System.Collections.Generic;
 
 /// <summary>
-/// 오브젝트 배치 시스템 - 드래그 앤 드롭으로 오브젝트 배치/이동/삭제
+/// 오브젝트 배치 시스템 - Edit 모드에서 배치/이동/삭제 통합
 /// 포탈 연결 배치 지원, 휠로 오브젝트 회전, 박자 스냅 배치
+/// Ctrl+Z로 실행취소, Ctrl+Shift+Z로 다시실행
 /// </summary>
 public class ObjectPlacer : MonoBehaviour
 {
@@ -22,11 +24,11 @@ public class ObjectPlacer : MonoBehaviour
 
     [Header("Beat Snap Settings")]
     [SerializeField] private bool enableBeatSnap = true;
-    [SerializeField] private float beatSnapDistance = 0.8f; // 박자 마커 스냅 거리
-    [SerializeField] private float instrumentRadius = 0.5f; // 악기 콜라이더 반지름 (비눗방울)
-    [SerializeField] private float marbleRadius = 0.15f; // 구슬 반지름
+    [SerializeField] private float beatSnapDistance = 0.8f;
+    [SerializeField] private float instrumentRadius = 0.5f;
+    [SerializeField] private float marbleRadius = 0.15f;
     [SerializeField] private Color snapIndicatorColor = new Color(0f, 1f, 0.5f, 0.8f);
-    [SerializeField] private float bounceAngleSnapStep = 15f; // 튕기는 각도 스냅 단위 (도)
+    [SerializeField] private float bounceAngleSnapStep = 15f;
 
     [Header("Current State")]
     [SerializeField] private PlacementMode currentMode = PlacementMode.Play;
@@ -40,6 +42,7 @@ public class ObjectPlacer : MonoBehaviour
     private Camera mainCamera;
     private bool isDragging = false;
     private Vector3 dragOffset;
+    private Vector3 dragStartPosition;
 
     // 포탈 연결 배치용
     private bool isPlacingPortal = false;
@@ -50,12 +53,54 @@ public class ObjectPlacer : MonoBehaviour
     private GameObject snapIndicator;
     private LineRenderer snapLine;
 
+    // Undo/Redo 스택
+    private Stack<UndoAction> undoStack = new Stack<UndoAction>();
+    private Stack<UndoAction> redoStack = new Stack<UndoAction>();
+    private const int MAX_UNDO_COUNT = 50;
+
     public enum PlacementMode
     {
         Play,
-        Select,
-        Place,
-        Delete
+        Edit
+    }
+
+    // Undo 액션 타입
+    private enum UndoActionType
+    {
+        Create,
+        Delete,
+        Move
+    }
+
+    // Undo 액션 데이터
+    private class UndoAction
+    {
+        public UndoActionType type;
+        public GameObject target;
+        public Vector3 oldPosition;
+        public Vector3 newPosition;
+        public Quaternion oldRotation;
+        public Quaternion newRotation;
+        public GameObject prefab;
+        public InstrumentData instrumentData;
+        public int noteIndex;
+        // 포탈 연결 정보
+        public Portal linkedPortal;
+        public Portal.PortalType portalType;
+        // 삭제된 오브젝트 정보 (복원용)
+        public SerializedObjectData serializedData;
+    }
+
+    // 삭제된 오브젝트 복원을 위한 데이터
+    private class SerializedObjectData
+    {
+        public GameObject prefab;
+        public Vector3 position;
+        public Quaternion rotation;
+        public InstrumentData instrumentData;
+        public int noteIndex;
+        public Portal.PortalType portalType;
+        public SerializedObjectData linkedPortalData;
     }
 
     private void Awake()
@@ -91,14 +136,8 @@ public class ObjectPlacer : MonoBehaviour
         {
             case PlacementMode.Play:
                 break;
-            case PlacementMode.Select:
-                HandleSelectMode(mouseWorldPos);
-                break;
-            case PlacementMode.Place:
-                HandlePlaceMode(mouseWorldPos);
-                break;
-            case PlacementMode.Delete:
-                HandleDeleteMode(mouseWorldPos);
+            case PlacementMode.Edit:
+                HandleEditMode(mouseWorldPos);
                 break;
         }
 
@@ -107,11 +146,475 @@ public class ObjectPlacer : MonoBehaviour
     }
 
     /// <summary>
-    /// 스냅 인디케이터 생성
+    /// 통합 Edit 모드 처리
+    /// 좌클릭: 배치(프리팹 선택시) 또는 선택
+    /// 우클릭: 삭제
+    /// Shift+드래그: 이동
     /// </summary>
+    private void HandleEditMode(Vector3 mouseWorldPos)
+    {
+        // 프리뷰 업데이트 (프리팹 선택시)
+        if (currentSelectedPrefab != null || isPlacingPortal)
+        {
+            UpdatePreview(mouseWorldPos);
+
+            if (isPlacingPortal && placedPortalA != null)
+            {
+                placedPortalA.ShowConnectionLineTo(mouseWorldPos);
+            }
+        }
+
+        // 좌클릭
+        if (Input.GetMouseButtonDown(0))
+        {
+            // Shift 드래그 시작 (이동)
+            if (Input.GetKey(KeyCode.LeftShift) || Input.GetKey(KeyCode.RightShift))
+            {
+                TryStartDrag(mouseWorldPos);
+            }
+            // 프리팹이 선택되어 있으면 배치
+            else if (currentSelectedPrefab != null || isPlacingPortal)
+            {
+                PlaceObject(mouseWorldPos);
+            }
+            // 아니면 선택
+            else
+            {
+                TrySelectObject(mouseWorldPos);
+            }
+        }
+
+        // Shift 드래그 중
+        if (Input.GetMouseButton(0) && isDragging && selectedObject != null)
+        {
+            Vector3 newPos = mouseWorldPos + dragOffset;
+
+            // 드래그 중에도 박자 스냅 적용
+            if (enableBeatSnap && TrajectoryPredictor.Instance != null)
+            {
+                var snapResult = TryGetBeatSnapPosition(newPos);
+                if (snapResult.HasValue)
+                {
+                    newPos = snapResult.Value;
+                    ShowSnapIndicator(currentSnapTarget);
+                }
+                else
+                {
+                    HideSnapIndicator();
+                }
+            }
+
+            if (snapToGrid && gridSize > 0 && currentSnapTarget == null)
+            {
+                newPos = SnapToGrid(newPos);
+            }
+
+            selectedObject.transform.position = newPos;
+        }
+
+        // 드래그 종료
+        if (Input.GetMouseButtonUp(0) && isDragging)
+        {
+            FinishDrag();
+        }
+
+        // 우클릭: 삭제
+        if (Input.GetMouseButtonDown(1))
+        {
+            // 포탈 배치 중이면 취소
+            if (isPlacingPortal)
+            {
+                CancelPlacement();
+            }
+            else
+            {
+                TryDeleteObject(mouseWorldPos);
+            }
+        }
+
+        // ESC: 선택 해제 또는 배치 취소
+        if (Input.GetKeyDown(KeyCode.Escape))
+        {
+            if (isPlacingPortal)
+            {
+                CancelPlacement();
+            }
+            else if (currentSelectedPrefab != null)
+            {
+                ClearPrefabSelection();
+            }
+            else
+            {
+                DeselectObject();
+            }
+        }
+    }
+
+    private void TryStartDrag(Vector3 mouseWorldPos)
+    {
+        Collider2D hit = Physics2D.OverlapPoint(mouseWorldPos);
+        if (hit != null && (hit.GetComponent<InstrumentObject>() != null ||
+                           hit.GetComponent<MarbleSpawner>() != null ||
+                           hit.GetComponent<Portal>() != null))
+        {
+            SelectObject(hit.gameObject);
+            isDragging = true;
+            dragOffset = hit.transform.position - mouseWorldPos;
+            dragStartPosition = hit.transform.position;
+        }
+    }
+
+    private void TrySelectObject(Vector3 mouseWorldPos)
+    {
+        Collider2D hit = Physics2D.OverlapPoint(mouseWorldPos);
+        if (hit != null && (hit.GetComponent<InstrumentObject>() != null ||
+                           hit.GetComponent<MarbleSpawner>() != null ||
+                           hit.GetComponent<Portal>() != null))
+        {
+            SelectObject(hit.gameObject);
+        }
+        else
+        {
+            DeselectObject();
+        }
+    }
+
+    private void FinishDrag()
+    {
+        if (isDragging && selectedObject != null)
+        {
+            Vector3 newPosition = selectedObject.transform.position;
+            if (Vector3.Distance(dragStartPosition, newPosition) > 0.01f)
+            {
+                // 이동 액션 기록
+                RecordMoveAction(selectedObject, dragStartPosition, newPosition);
+            }
+        }
+        isDragging = false;
+        HideSnapIndicator();
+
+        // 경로 예측 새로고침
+        RefreshTrajectoryPrediction();
+    }
+
+    private void TryDeleteObject(Vector3 mouseWorldPos)
+    {
+        Collider2D hit = Physics2D.OverlapPoint(mouseWorldPos);
+        if (hit != null)
+        {
+            Portal portal = hit.GetComponent<Portal>();
+            if (portal != null)
+            {
+                DeletePortalPair(portal);
+                return;
+            }
+
+            if (hit.GetComponent<InstrumentObject>() != null || hit.GetComponent<MarbleSpawner>() != null)
+            {
+                DeleteObject(hit.gameObject);
+            }
+        }
+    }
+
+    private void DeleteObject(GameObject obj)
+    {
+        // 삭제 액션 기록
+        RecordDeleteAction(obj);
+
+        Destroy(obj);
+
+        if (selectedObject == obj)
+        {
+            selectedObject = null;
+        }
+
+        RefreshTrajectoryPrediction();
+    }
+
+    private void DeletePortalPair(Portal portal)
+    {
+        Portal linked = portal.GetLinkedPortal();
+
+        // 양쪽 포탈 모두 삭제 액션 기록
+        RecordDeletePortalPairAction(portal, linked);
+
+        if (linked != null)
+        {
+            Destroy(linked.gameObject);
+        }
+        Destroy(portal.gameObject);
+
+        if (selectedObject == portal.gameObject || (linked != null && selectedObject == linked.gameObject))
+        {
+            selectedObject = null;
+        }
+
+        RefreshTrajectoryPrediction();
+    }
+
+    #region Undo/Redo System
+
+    private void RecordCreateAction(GameObject obj)
+    {
+        var action = new UndoAction
+        {
+            type = UndoActionType.Create,
+            target = obj,
+            newPosition = obj.transform.position,
+            newRotation = obj.transform.rotation
+        };
+
+        InstrumentObject instrument = obj.GetComponent<InstrumentObject>();
+        if (instrument != null)
+        {
+            action.instrumentData = instrument.GetInstrumentData();
+            action.noteIndex = instrument.GetNoteIndex();
+        }
+
+        Portal portal = obj.GetComponent<Portal>();
+        if (portal != null)
+        {
+            action.linkedPortal = portal.GetLinkedPortal();
+            action.portalType = portal.GetPortalType();
+        }
+
+        PushUndo(action);
+    }
+
+    private void RecordDeleteAction(GameObject obj)
+    {
+        var serialized = SerializeObject(obj);
+
+        var action = new UndoAction
+        {
+            type = UndoActionType.Delete,
+            target = null,
+            serializedData = serialized
+        };
+
+        PushUndo(action);
+    }
+
+    private void RecordDeletePortalPairAction(Portal portal, Portal linked)
+    {
+        var serializedPortal = SerializeObject(portal.gameObject);
+        if (linked != null)
+        {
+            serializedPortal.linkedPortalData = SerializeObject(linked.gameObject);
+        }
+
+        var action = new UndoAction
+        {
+            type = UndoActionType.Delete,
+            target = null,
+            serializedData = serializedPortal
+        };
+
+        PushUndo(action);
+    }
+
+    private void RecordMoveAction(GameObject obj, Vector3 oldPos, Vector3 newPos)
+    {
+        var action = new UndoAction
+        {
+            type = UndoActionType.Move,
+            target = obj,
+            oldPosition = oldPos,
+            newPosition = newPos,
+            oldRotation = obj.transform.rotation,
+            newRotation = obj.transform.rotation
+        };
+
+        PushUndo(action);
+    }
+
+    private SerializedObjectData SerializeObject(GameObject obj)
+    {
+        var data = new SerializedObjectData
+        {
+            position = obj.transform.position,
+            rotation = obj.transform.rotation
+        };
+
+        InstrumentObject instrument = obj.GetComponent<InstrumentObject>();
+        if (instrument != null)
+        {
+            data.instrumentData = instrument.GetInstrumentData();
+            data.noteIndex = instrument.GetNoteIndex();
+            data.prefab = data.instrumentData?.Prefab;
+        }
+
+        MarbleSpawner spawner = obj.GetComponent<MarbleSpawner>();
+        if (spawner != null)
+        {
+            data.prefab = SpawnerPrefab;
+        }
+
+        Portal portal = obj.GetComponent<Portal>();
+        if (portal != null)
+        {
+            data.portalType = portal.GetPortalType();
+            data.prefab = portal.GetPortalType() == Portal.PortalType.Entry ? PortalAPrefab : PortalBPrefab;
+        }
+
+        return data;
+    }
+
+    private GameObject DeserializeObject(SerializedObjectData data)
+    {
+        if (data.prefab == null) return null;
+
+        GameObject obj = Instantiate(data.prefab, data.position, data.rotation);
+
+        InstrumentObject instrument = obj.GetComponent<InstrumentObject>();
+        if (instrument != null && data.instrumentData != null)
+        {
+            instrument.SetInstrumentData(data.instrumentData);
+            instrument.SetNoteIndex(data.noteIndex);
+        }
+
+        Portal portal = obj.GetComponent<Portal>();
+        if (portal != null)
+        {
+            portal.SetPortalType(data.portalType);
+        }
+
+        return obj;
+    }
+
+    private void PushUndo(UndoAction action)
+    {
+        undoStack.Push(action);
+        redoStack.Clear();
+
+        // 최대 개수 제한
+        if (undoStack.Count > MAX_UNDO_COUNT)
+        {
+            var tempStack = new Stack<UndoAction>();
+            for (int i = 0; i < MAX_UNDO_COUNT; i++)
+            {
+                tempStack.Push(undoStack.Pop());
+            }
+            undoStack.Clear();
+            while (tempStack.Count > 0)
+            {
+                undoStack.Push(tempStack.Pop());
+            }
+        }
+    }
+
+    public void Undo()
+    {
+        if (undoStack.Count == 0) return;
+
+        var action = undoStack.Pop();
+
+        switch (action.type)
+        {
+            case UndoActionType.Create:
+                // 생성 취소 = 삭제
+                if (action.target != null)
+                {
+                    // 포탈인 경우 연결된 포탈도 삭제
+                    Portal portal = action.target.GetComponent<Portal>();
+                    if (portal != null && action.linkedPortal != null)
+                    {
+                        Destroy(action.linkedPortal.gameObject);
+                    }
+                    Destroy(action.target);
+                }
+                break;
+
+            case UndoActionType.Delete:
+                // 삭제 취소 = 복원
+                if (action.serializedData != null)
+                {
+                    GameObject restored = DeserializeObject(action.serializedData);
+                    action.target = restored;
+
+                    // 포탈 쌍 복원
+                    if (action.serializedData.linkedPortalData != null)
+                    {
+                        GameObject linkedRestored = DeserializeObject(action.serializedData.linkedPortalData);
+                        Portal restoredPortal = restored.GetComponent<Portal>();
+                        Portal linkedPortal = linkedRestored.GetComponent<Portal>();
+                        if (restoredPortal != null && linkedPortal != null)
+                        {
+                            restoredPortal.SetLinkedPortal(linkedPortal);
+                            linkedPortal.SetLinkedPortal(restoredPortal);
+                        }
+                    }
+                }
+                break;
+
+            case UndoActionType.Move:
+                // 이동 취소 = 원래 위치로
+                if (action.target != null)
+                {
+                    action.target.transform.position = action.oldPosition;
+                    action.target.transform.rotation = action.oldRotation;
+                }
+                break;
+        }
+
+        redoStack.Push(action);
+        RefreshTrajectoryPrediction();
+    }
+
+    public void Redo()
+    {
+        if (redoStack.Count == 0) return;
+
+        var action = redoStack.Pop();
+
+        switch (action.type)
+        {
+            case UndoActionType.Create:
+                // 생성 다시실행 = 다시 생성
+                if (action.serializedData != null)
+                {
+                    action.target = DeserializeObject(action.serializedData);
+                }
+                break;
+
+            case UndoActionType.Delete:
+                // 삭제 다시실행 = 다시 삭제
+                if (action.target != null)
+                {
+                    Portal portal = action.target.GetComponent<Portal>();
+                    if (portal != null)
+                    {
+                        Portal linked = portal.GetLinkedPortal();
+                        if (linked != null)
+                        {
+                            Destroy(linked.gameObject);
+                        }
+                    }
+                    Destroy(action.target);
+                    action.target = null;
+                }
+                break;
+
+            case UndoActionType.Move:
+                // 이동 다시실행 = 새 위치로
+                if (action.target != null)
+                {
+                    action.target.transform.position = action.newPosition;
+                    action.target.transform.rotation = action.newRotation;
+                }
+                break;
+        }
+
+        undoStack.Push(action);
+        RefreshTrajectoryPrediction();
+    }
+
+    #endregion
+
+    #region Snap Indicator
+
     private void CreateSnapIndicator()
     {
-        // 스냅 위치 표시 원
         snapIndicator = new GameObject("SnapIndicator");
         snapIndicator.transform.SetParent(transform);
         SpriteRenderer sr = snapIndicator.AddComponent<SpriteRenderer>();
@@ -121,7 +624,6 @@ public class ObjectPlacer : MonoBehaviour
         snapIndicator.transform.localScale = Vector3.one * (instrumentRadius * 2f + 0.1f);
         snapIndicator.SetActive(false);
 
-        // 스냅 연결선
         GameObject lineObj = new GameObject("SnapLine");
         lineObj.transform.SetParent(snapIndicator.transform);
         snapLine = lineObj.AddComponent<LineRenderer>();
@@ -134,9 +636,6 @@ public class ObjectPlacer : MonoBehaviour
         snapLine.sortingOrder = 14;
     }
 
-    /// <summary>
-    /// 원 스프라이트 생성
-    /// </summary>
     private Sprite CreateCircleSprite()
     {
         int size = 64;
@@ -168,221 +667,6 @@ public class ObjectPlacer : MonoBehaviour
         return Sprite.Create(texture, new Rect(0, 0, size, size), new Vector2(0.5f, 0.5f), size);
     }
 
-    private void HandleSelectMode(Vector3 mouseWorldPos)
-    {
-        if (Input.GetMouseButtonDown(0))
-        {
-            Collider2D hit = Physics2D.OverlapPoint(mouseWorldPos);
-            if (hit != null && (hit.GetComponent<InstrumentObject>() != null ||
-                               hit.GetComponent<MarbleSpawner>() != null ||
-                               hit.GetComponent<Portal>() != null))
-            {
-                SelectObject(hit.gameObject);
-                isDragging = true;
-                dragOffset = hit.transform.position - mouseWorldPos;
-            }
-            else
-            {
-                DeselectObject();
-            }
-        }
-
-        if (Input.GetMouseButton(0) && isDragging && selectedObject != null)
-        {
-            Vector3 newPos = mouseWorldPos + dragOffset;
-
-            // 드래그 중에도 박자 스냅 적용
-            if (enableBeatSnap && TrajectoryPredictor.Instance != null)
-            {
-                var snapResult = TryGetBeatSnapPosition(newPos);
-                if (snapResult.HasValue)
-                {
-                    newPos = snapResult.Value;
-                    ShowSnapIndicator(currentSnapTarget);
-                }
-                else
-                {
-                    HideSnapIndicator();
-                }
-            }
-
-            if (snapToGrid && gridSize > 0 && currentSnapTarget == null)
-            {
-                newPos = SnapToGrid(newPos);
-            }
-
-            selectedObject.transform.position = newPos;
-        }
-
-        if (Input.GetMouseButtonUp(0))
-        {
-            isDragging = false;
-            HideSnapIndicator();
-        }
-    }
-
-    private void HandlePlaceMode(Vector3 mouseWorldPos)
-    {
-        UpdatePreview(mouseWorldPos);
-
-        if (isPlacingPortal && placedPortalA != null)
-        {
-            placedPortalA.ShowConnectionLineTo(mouseWorldPos);
-        }
-
-        if (Input.GetMouseButtonDown(0))
-        {
-            PlaceObject(mouseWorldPos);
-        }
-
-        if (Input.GetMouseButtonDown(1) || Input.GetKeyDown(KeyCode.Escape))
-        {
-            CancelPlacement();
-        }
-    }
-
-    private void HandleDeleteMode(Vector3 mouseWorldPos)
-    {
-        if (Input.GetMouseButtonDown(0))
-        {
-            Collider2D hit = Physics2D.OverlapPoint(mouseWorldPos);
-            if (hit != null)
-            {
-                Portal portal = hit.GetComponent<Portal>();
-                if (portal != null)
-                {
-                    Portal linked = portal.GetLinkedPortal();
-                    if (linked != null)
-                    {
-                        Destroy(linked.gameObject);
-                    }
-                    Destroy(portal.gameObject);
-                    return;
-                }
-
-                if (hit.GetComponent<InstrumentObject>() != null || hit.GetComponent<MarbleSpawner>() != null)
-                {
-                    Destroy(hit.gameObject);
-                }
-            }
-        }
-    }
-
-    private void HandleWheelInput(Vector3 mouseWorldPos)
-    {
-        float scroll = Input.mouseScrollDelta.y;
-        if (scroll == 0) return;
-
-        if (Input.GetKey(KeyCode.LeftShift) || Input.GetKey(KeyCode.RightShift))
-        {
-            return;
-        }
-
-        if (currentMode == PlacementMode.Place && previewObject != null)
-        {
-            previewObject.transform.Rotate(0, 0, -scroll * rotationStep);
-            return;
-        }
-
-        if (currentMode == PlacementMode.Select && selectedObject != null)
-        {
-            selectedObject.transform.Rotate(0, 0, -scroll * rotationStep);
-            return;
-        }
-    }
-
-    private void HandleKeyboardInput()
-    {
-        if (Input.GetKeyDown(KeyCode.Q)) SetMode(PlacementMode.Play);
-        if (Input.GetKeyDown(KeyCode.W)) SetMode(PlacementMode.Select);
-        if (Input.GetKeyDown(KeyCode.E)) SetMode(PlacementMode.Place);
-        if (Input.GetKeyDown(KeyCode.R)) SetMode(PlacementMode.Delete);
-
-        if (Input.GetKeyDown(KeyCode.Escape))
-        {
-            CancelPlacement();
-        }
-
-        if (selectedObject != null)
-        {
-            if (Input.GetKeyDown(KeyCode.Delete) || Input.GetKeyDown(KeyCode.Backspace))
-            {
-                Portal portal = selectedObject.GetComponent<Portal>();
-                if (portal != null)
-                {
-                    Portal linked = portal.GetLinkedPortal();
-                    if (linked != null)
-                    {
-                        Destroy(linked.gameObject);
-                    }
-                }
-                Destroy(selectedObject);
-                selectedObject = null;
-            }
-
-            if (Input.GetKey(KeyCode.LeftArrow))
-                selectedObject.transform.Rotate(0, 0, 90 * Time.deltaTime);
-            if (Input.GetKey(KeyCode.RightArrow))
-                selectedObject.transform.Rotate(0, 0, -90 * Time.deltaTime);
-        }
-
-    }
-
-    /// <summary>
-    /// 박자 스냅 위치 계산
-    /// </summary>
-    private Vector3? TryGetBeatSnapPosition(Vector3 mousePos)
-    {
-        if (TrajectoryPredictor.Instance == null) return null;
-
-        var nearestMarker = TrajectoryPredictor.Instance.GetNearestBeatMarker(mousePos, beatSnapDistance);
-
-        if (nearestMarker != null)
-        {
-            currentSnapTarget = nearestMarker;
-
-            // 박자 마커 위치에서 악기 중심 위치 계산
-            // 마우스 방향으로 악기 배치 (충돌점이 정확히 마커 위치가 되도록)
-            Vector2 markerPos = nearestMarker.position;
-            Vector2 mouseDir = ((Vector2)mousePos - markerPos);
-
-            // 마우스가 마커와 거의 같은 위치면 속도 방향 사용
-            if (mouseDir.magnitude < 0.01f)
-            {
-                mouseDir = -nearestMarker.velocity.normalized;
-            }
-            else
-            {
-                // 각도 스냅 적용
-                float angle = Mathf.Atan2(mouseDir.y, mouseDir.x) * Mathf.Rad2Deg;
-                angle = SnapAngle(angle, bounceAngleSnapStep);
-                float rad = angle * Mathf.Deg2Rad;
-                mouseDir = new Vector2(Mathf.Cos(rad), Mathf.Sin(rad));
-            }
-
-            // 악기 중심 = 마커 위치 + 방향 * (악기 반지름 + 구슬 반지름)
-            float totalRadius = instrumentRadius + marbleRadius;
-            Vector3 snapPos = (Vector3)(markerPos + mouseDir * totalRadius);
-            snapPos.z = 0;
-
-            return snapPos;
-        }
-
-        currentSnapTarget = null;
-        return null;
-    }
-
-    /// <summary>
-    /// 각도를 주어진 스텝 단위로 스냅
-    /// </summary>
-    private float SnapAngle(float angle, float step)
-    {
-        return Mathf.Round(angle / step) * step;
-    }
-
-    /// <summary>
-    /// 스냅 인디케이터 표시
-    /// </summary>
     private void ShowSnapIndicator(TrajectoryPredictor.BeatMarkerData marker)
     {
         if (snapIndicator == null || marker == null) return;
@@ -390,7 +674,6 @@ public class ObjectPlacer : MonoBehaviour
         snapIndicator.SetActive(true);
         snapIndicator.transform.position = marker.position;
 
-        // 연결선 업데이트
         if (snapLine != null && previewObject != null)
         {
             snapLine.SetPosition(0, marker.position);
@@ -403,9 +686,6 @@ public class ObjectPlacer : MonoBehaviour
         }
     }
 
-    /// <summary>
-    /// 스냅 인디케이터 숨기기
-    /// </summary>
     private void HideSnapIndicator()
     {
         if (snapIndicator != null)
@@ -415,27 +695,60 @@ public class ObjectPlacer : MonoBehaviour
         currentSnapTarget = null;
     }
 
-    private void CancelPlacement()
+    #endregion
+
+    #region Beat Snap
+
+    private Vector3? TryGetBeatSnapPosition(Vector3 mousePos)
     {
-        if (isPlacingPortal && placedPortalA != null)
+        if (TrajectoryPredictor.Instance == null) return null;
+
+        var nearestMarker = TrajectoryPredictor.Instance.GetNearestBeatMarker(mousePos, beatSnapDistance);
+
+        if (nearestMarker != null)
         {
-            placedPortalA.HideConnectionLine();
-            Destroy(placedPortalA.gameObject);
-            placedPortalA = null;
-            isPlacingPortal = false;
+            currentSnapTarget = nearestMarker;
+
+            Vector2 markerPos = nearestMarker.position;
+            Vector2 mouseDir = ((Vector2)mousePos - markerPos);
+
+            if (mouseDir.magnitude < 0.01f)
+            {
+                mouseDir = -nearestMarker.velocity.normalized;
+            }
+            else
+            {
+                float angle = Mathf.Atan2(mouseDir.y, mouseDir.x) * Mathf.Rad2Deg;
+                angle = SnapAngle(angle, bounceAngleSnapStep);
+                float rad = angle * Mathf.Deg2Rad;
+                mouseDir = new Vector2(Mathf.Cos(rad), Mathf.Sin(rad));
+            }
+
+            float totalRadius = instrumentRadius + marbleRadius;
+            Vector3 snapPos = (Vector3)(markerPos + mouseDir * totalRadius);
+            snapPos.z = 0;
+
+            return snapPos;
         }
 
-        HidePreview();
-        HideSnapIndicator();
-        SetMode(PlacementMode.Select);
+        currentSnapTarget = null;
+        return null;
     }
+
+    private float SnapAngle(float angle, float step)
+    {
+        return Mathf.Round(angle / step) * step;
+    }
+
+    #endregion
+
+    #region Placement
 
     private void PlaceObject(Vector3 position)
     {
         GameObject prefab = GetCurrentPrefab();
         if (prefab == null) return;
 
-        // 박자 스냅 적용
         if (enableBeatSnap && TrajectoryPredictor.Instance != null)
         {
             var snapResult = TryGetBeatSnapPosition(position);
@@ -481,12 +794,10 @@ public class ObjectPlacer : MonoBehaviour
             }
         }
 
-        // 배치 후 예측 새로고침
-        if (TrajectoryPredictor.Instance != null && TrajectoryPredictor.Instance.IsVisible())
-        {
-            TrajectoryPredictor.Instance.RefreshPredictions();
-        }
+        // 생성 액션 기록
+        RecordCreateAction(placed);
 
+        RefreshTrajectoryPrediction();
         HideSnapIndicator();
     }
 
@@ -536,17 +847,57 @@ public class ObjectPlacer : MonoBehaviour
             portalB.SetLinkedPortal(placedPortalA);
 
             placedPortalA.HideConnectionLine();
+
+            // 포탈 쌍 생성 액션 기록 (Entry 포탈 기준)
+            var action = new UndoAction
+            {
+                type = UndoActionType.Create,
+                target = placedPortalA.gameObject,
+                linkedPortal = portalB,
+                newPosition = placedPortalA.transform.position,
+                newRotation = placedPortalA.transform.rotation,
+                serializedData = new SerializedObjectData
+                {
+                    prefab = PortalAPrefab,
+                    position = placedPortalA.transform.position,
+                    rotation = placedPortalA.transform.rotation,
+                    portalType = Portal.PortalType.Entry,
+                    linkedPortalData = new SerializedObjectData
+                    {
+                        prefab = PortalBPrefab,
+                        position = portalBObj.transform.position,
+                        rotation = portalBObj.transform.rotation,
+                        portalType = Portal.PortalType.Exit
+                    }
+                }
+            };
+            PushUndo(action);
         }
 
         placedPortalA = null;
         isPlacingPortal = false;
         HidePreview();
-        SetMode(PlacementMode.Select);
+        ClearPrefabSelection();
+
+        RefreshTrajectoryPrediction();
+    }
+
+    private void CancelPlacement()
+    {
+        if (isPlacingPortal && placedPortalA != null)
+        {
+            placedPortalA.HideConnectionLine();
+            Destroy(placedPortalA.gameObject);
+            placedPortalA = null;
+            isPlacingPortal = false;
+        }
+
+        HidePreview();
+        HideSnapIndicator();
     }
 
     private void UpdatePreview(Vector3 position)
     {
-        // 박자 스냅 체크
         if (enableBeatSnap && TrajectoryPredictor.Instance != null)
         {
             var snapResult = TryGetBeatSnapPosition(position);
@@ -629,6 +980,83 @@ public class ObjectPlacer : MonoBehaviour
         }
     }
 
+    #endregion
+
+    #region Input Handling
+
+    private void HandleWheelInput(Vector3 mouseWorldPos)
+    {
+        float scroll = Input.mouseScrollDelta.y;
+        if (scroll == 0) return;
+
+        if (Input.GetKey(KeyCode.LeftShift) || Input.GetKey(KeyCode.RightShift))
+        {
+            return;
+        }
+
+        if (currentMode == PlacementMode.Edit && previewObject != null)
+        {
+            previewObject.transform.Rotate(0, 0, -scroll * rotationStep);
+            return;
+        }
+
+        if (currentMode == PlacementMode.Edit && selectedObject != null)
+        {
+            selectedObject.transform.Rotate(0, 0, -scroll * rotationStep);
+            return;
+        }
+    }
+
+    private void HandleKeyboardInput()
+    {
+        // 모드 단축키
+        if (Input.GetKeyDown(KeyCode.Q)) SetMode(PlacementMode.Play);
+        if (Input.GetKeyDown(KeyCode.E)) SetMode(PlacementMode.Edit);
+
+        // Undo/Redo (Ctrl+Z, Ctrl+Shift+Z)
+        if (Input.GetKey(KeyCode.LeftControl) || Input.GetKey(KeyCode.RightControl))
+        {
+            if (Input.GetKeyDown(KeyCode.Z))
+            {
+                if (Input.GetKey(KeyCode.LeftShift) || Input.GetKey(KeyCode.RightShift))
+                {
+                    Redo();
+                }
+                else
+                {
+                    Undo();
+                }
+            }
+        }
+
+        // Delete 키로 선택된 오브젝트 삭제
+        if (selectedObject != null)
+        {
+            if (Input.GetKeyDown(KeyCode.Delete) || Input.GetKeyDown(KeyCode.Backspace))
+            {
+                Portal portal = selectedObject.GetComponent<Portal>();
+                if (portal != null)
+                {
+                    DeletePortalPair(portal);
+                }
+                else
+                {
+                    DeleteObject(selectedObject);
+                }
+            }
+
+            // 화살표 키로 회전
+            if (Input.GetKey(KeyCode.LeftArrow))
+                selectedObject.transform.Rotate(0, 0, 90 * Time.deltaTime);
+            if (Input.GetKey(KeyCode.RightArrow))
+                selectedObject.transform.Rotate(0, 0, -90 * Time.deltaTime);
+        }
+    }
+
+    #endregion
+
+    #region Utilities
+
     private void SetObjectAlpha(GameObject obj, float alpha)
     {
         SpriteRenderer[] renderers = obj.GetComponentsInChildren<SpriteRenderer>();
@@ -664,13 +1092,20 @@ public class ObjectPlacer : MonoBehaviour
 
     private GameObject GetCurrentPrefab()
     {
-        if (currentSelectedPrefab != null)
-        {
-            return currentSelectedPrefab;
-        }
-
-        return null;
+        return currentSelectedPrefab;
     }
+
+    private void RefreshTrajectoryPrediction()
+    {
+        if (TrajectoryPredictor.Instance != null && TrajectoryPredictor.Instance.IsVisible())
+        {
+            TrajectoryPredictor.Instance.RefreshPredictions();
+        }
+    }
+
+    #endregion
+
+    #region Selection
 
     public void SelectObject(GameObject obj)
     {
@@ -680,17 +1115,24 @@ public class ObjectPlacer : MonoBehaviour
 
     public void DeselectObject()
     {
-        if (selectedObject != null)
-        {
-            // 선택 효과 제거
-        }
         selectedObject = null;
     }
 
+    public void ClearPrefabSelection()
+    {
+        currentSelectedPrefab = null;
+        currentInstrumentData = null;
+        HidePreview();
+        HideSnapIndicator();
+    }
+
+    #endregion
+
+    #region Public API
+
     public void SetMode(PlacementMode mode)
     {
-        // 모드 변경 시 포탈 배치 취소
-        if (currentMode == PlacementMode.Place && mode != PlacementMode.Place)
+        if (currentMode == PlacementMode.Edit && mode != PlacementMode.Edit)
         {
             if (isPlacingPortal && placedPortalA != null)
             {
@@ -701,17 +1143,16 @@ public class ObjectPlacer : MonoBehaviour
             }
         }
 
-        PlacementMode previousMode = currentMode;
         currentMode = mode;
 
-        if (mode != PlacementMode.Place)
+        if (mode != PlacementMode.Edit)
         {
             HidePreview();
             HideSnapIndicator();
+            ClearPrefabSelection();
         }
 
-        // Select/Place 모드에서 경로 예측 표시
-        if ((mode == PlacementMode.Select || mode == PlacementMode.Place) && TrajectoryPredictor.Instance != null)
+        if (mode == PlacementMode.Edit && TrajectoryPredictor.Instance != null)
         {
             TrajectoryPredictor.Instance.ShowAllSpawnerPredictions();
         }
@@ -720,7 +1161,6 @@ public class ObjectPlacer : MonoBehaviour
             TrajectoryPredictor.Instance.HideAllPredictions();
         }
     }
-
 
     public void SelectSpawnerPrefab()
     {
@@ -731,7 +1171,7 @@ public class ObjectPlacer : MonoBehaviour
         }
         currentSelectedPrefab = SpawnerPrefab;
         currentInstrumentData = null;
-        SetMode(PlacementMode.Place);
+        SetMode(PlacementMode.Edit);
     }
 
     public void StartPortalPlacement()
@@ -746,7 +1186,7 @@ public class ObjectPlacer : MonoBehaviour
         currentInstrumentData = null;
         isPlacingPortal = false;
         placedPortalA = null;
-        SetMode(PlacementMode.Place);
+        SetMode(PlacementMode.Edit);
     }
 
     public void ToggleGridSnap()
@@ -776,9 +1216,7 @@ public class ObjectPlacer : MonoBehaviour
 
     public bool IsWheelRotating()
     {
-        if (currentMode == PlacementMode.Place && previewObject != null)
-            return true;
-        if (currentMode == PlacementMode.Select && selectedObject != null)
+        if (currentMode == PlacementMode.Edit && (previewObject != null || selectedObject != null))
             return true;
         return false;
     }
@@ -788,12 +1226,9 @@ public class ObjectPlacer : MonoBehaviour
         return isPlacingPortal;
     }
 
-
-
-
     public void SetCurrentNoteIndex(int noteIndex)
     {
-        currentNoteIndex = Mathf.Clamp(noteIndex, 0, 11);
+        currentNoteIndex = noteIndex;
     }
 
     public int GetCurrentNoteIndex()
@@ -801,9 +1236,6 @@ public class ObjectPlacer : MonoBehaviour
         return currentNoteIndex;
     }
 
-    /// <summary>
-    /// 악기 반지름 설정 (비눗방울 크기)
-    /// </summary>
     public void SetInstrumentRadius(float radius)
     {
         instrumentRadius = radius;
@@ -813,15 +1245,13 @@ public class ObjectPlacer : MonoBehaviour
         }
     }
 
-    #region InstrumentData 기반 API
-
     public void SetSelectedPrefab(GameObject prefab)
     {
         currentSelectedPrefab = prefab;
         currentInstrumentData = null;
         isPlacingPortal = false;
         placedPortalA = null;
-        SetMode(PlacementMode.Place);
+        SetMode(PlacementMode.Edit);
     }
 
     public void SetSelectedInstrumentData(InstrumentData instrumentData)
@@ -830,7 +1260,7 @@ public class ObjectPlacer : MonoBehaviour
         currentSelectedPrefab = instrumentData?.Prefab;
         isPlacingPortal = false;
         placedPortalA = null;
-        SetMode(PlacementMode.Place);
+        SetMode(PlacementMode.Edit);
     }
 
     public InstrumentData GetCurrentInstrumentData()
@@ -845,20 +1275,8 @@ public class ObjectPlacer : MonoBehaviour
 
     public void ClearSelection()
     {
-        currentSelectedPrefab = null;
-        currentInstrumentData = null;
-        isPlacingPortal = false;
-
-        if (placedPortalA != null)
-        {
-            placedPortalA.HideConnectionLine();
-            Destroy(placedPortalA.gameObject);
-            placedPortalA = null;
-        }
-
-        HidePreview();
-        HideSnapIndicator();
-        SetMode(PlacementMode.Select);
+        ClearPrefabSelection();
+        DeselectObject();
     }
 
     #endregion

@@ -13,9 +13,7 @@ public class MainUIManager : MonoBehaviour
 
     [Header("Mode Panel (Top-Left)")]
     [SerializeField] private Button playModeBtn;
-    [SerializeField] private Button selectModeBtn;
-    [SerializeField] private Button placeModeBtn;
-    [SerializeField] private Button deleteModeBtn;
+    [SerializeField] private Button editModeBtn;
 
     [Header("BPM Panel (Top-Right)")]
     [SerializeField] private Button bpmMinusBtn;
@@ -139,12 +137,10 @@ public class MainUIManager : MonoBehaviour
 
         // 모드 단축키
         if (Input.GetKeyDown(KeyCode.Q)) SetMode(ObjectPlacer.PlacementMode.Play);
-        if (Input.GetKeyDown(KeyCode.W)) SetMode(ObjectPlacer.PlacementMode.Select);
-        if (Input.GetKeyDown(KeyCode.E)) SetMode(ObjectPlacer.PlacementMode.Place);
-        if (Input.GetKeyDown(KeyCode.R)) SetMode(ObjectPlacer.PlacementMode.Delete);
+        if (Input.GetKeyDown(KeyCode.E)) SetMode(ObjectPlacer.PlacementMode.Edit);
 
-        // Place 모드에서 탭 단축키
-        if (ObjectPlacer.Instance != null && ObjectPlacer.Instance.GetCurrentMode() == ObjectPlacer.PlacementMode.Place)
+        // Edit 모드에서 탭 단축키
+        if (ObjectPlacer.Instance != null && ObjectPlacer.Instance.GetCurrentMode() == ObjectPlacer.PlacementMode.Edit)
         {
             if (Input.GetKeyDown(KeyCode.Alpha1)) SwitchTab(0);
             if (Input.GetKeyDown(KeyCode.Alpha2)) SwitchTab(1);
@@ -168,10 +164,10 @@ public class MainUIManager : MonoBehaviour
                 if (Input.GetKeyDown(KeyCode.J)) SetNoteIndex(10); // A#
                 if (Input.GetKeyDown(KeyCode.M)) SetNoteIndex(11); // B
 
-                // 옥타브 단축키 ([ ] 또는 위/아래 화살표)
-                if (Input.GetKeyDown(KeyCode.LeftBracket) || Input.GetKeyDown(KeyCode.DownArrow))
+                // 옥타브 단축키 (< > 또는 [ ] 또는 위/아래 화살표)
+                if (Input.GetKeyDown(KeyCode.Comma) || Input.GetKeyDown(KeyCode.LeftBracket) || Input.GetKeyDown(KeyCode.DownArrow))
                     ChangeOctave(-1);
-                if (Input.GetKeyDown(KeyCode.RightBracket) || Input.GetKeyDown(KeyCode.UpArrow))
+                if (Input.GetKeyDown(KeyCode.Period) || Input.GetKeyDown(KeyCode.RightBracket) || Input.GetKeyDown(KeyCode.UpArrow))
                     ChangeOctave(1);
             }
         }
@@ -181,16 +177,12 @@ public class MainUIManager : MonoBehaviour
 
     private void SetupModeButtons()
     {
-        modeButtons = new Button[] { playModeBtn, selectModeBtn, placeModeBtn, deleteModeBtn };
+        modeButtons = new Button[] { playModeBtn, editModeBtn };
 
         if (playModeBtn != null)
             playModeBtn.onClick.AddListener(() => SetMode(ObjectPlacer.PlacementMode.Play));
-        if (selectModeBtn != null)
-            selectModeBtn.onClick.AddListener(() => SetMode(ObjectPlacer.PlacementMode.Select));
-        if (placeModeBtn != null)
-            placeModeBtn.onClick.AddListener(() => SetMode(ObjectPlacer.PlacementMode.Place));
-        if (deleteModeBtn != null)
-            deleteModeBtn.onClick.AddListener(() => SetMode(ObjectPlacer.PlacementMode.Delete));
+        if (editModeBtn != null)
+            editModeBtn.onClick.AddListener(() => SetMode(ObjectPlacer.PlacementMode.Edit));
     }
 
     public void SetMode(ObjectPlacer.PlacementMode mode)
@@ -201,7 +193,7 @@ public class MainUIManager : MonoBehaviour
         }
 
         UpdateModeButtonVisuals(mode);
-        ShowDock(mode == ObjectPlacer.PlacementMode.Place);
+        ShowDock(mode == ObjectPlacer.PlacementMode.Edit);
     }
 
     private void UpdateModeButtonVisuals(ObjectPlacer.PlacementMode mode)

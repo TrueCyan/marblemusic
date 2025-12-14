@@ -86,8 +86,8 @@ public static class MarblePhysics
                 preCollisionSpeed
             ));
 
-            // 화면 밖으로 나가면 중지
-            if (position.y < -20f)
+            // 너무 아래로 떨어지면 중지
+            if (position.y < -500f)
             {
                 break;
             }

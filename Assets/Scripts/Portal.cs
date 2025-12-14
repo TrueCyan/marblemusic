@@ -86,8 +86,8 @@ public class Portal : MonoBehaviour
                 var mode = ObjectPlacer.Instance.GetCurrentMode();
                 var selected = ObjectPlacer.Instance.GetSelectedObject();
 
-                // Select 모드에서 이 포탈 또는 연결된 포탈이 선택되었을 때
-                if (mode == ObjectPlacer.PlacementMode.Select)
+                // Edit 모드에서 이 포탈 또는 연결된 포탈이 선택되었을 때
+                if (mode == ObjectPlacer.PlacementMode.Edit)
                 {
                     shouldShow = (selected == gameObject || selected == linkedPortal.gameObject);
                 }
@@ -221,6 +221,14 @@ public class Portal : MonoBehaviour
     public void SetPortalType(PortalType type)
     {
         portalType = type;
+    }
+
+    /// <summary>
+    /// 포탈 타입 반환
+    /// </summary>
+    public PortalType GetPortalType()
+    {
+        return portalType;
     }
 
     /// <summary>

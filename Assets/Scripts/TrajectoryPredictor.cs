@@ -212,12 +212,61 @@ public class TrajectoryPredictor : MonoBehaviour
         // 스포너 콜라이더 참조 (무시용)
         Collider2D spawnerCollider = spawner != null ? spawner.GetComponent<Collider2D>() : null;
 
+        // 모든 Entry 포탈 캐싱
+        Portal[] allPortals = FindObjectsByType<Portal>(FindObjectsSortMode.None);
+        List<Portal> entryPortals = new List<Portal>();
+        foreach (var portal in allPortals)
+        {
+            if (portal.GetPortalType() == Portal.PortalType.Entry && portal.GetLinkedPortal() != null)
+            {
+                entryPortals.Add(portal);
+            }
+        }
+
+        // 포탈 쿨다운 (무한 루프 방지)
+        float portalCooldown = 0f;
+        const float portalCooldownTime = 0.15f;
+
         prediction.path.Add(position);
 
         float dt = Time.fixedDeltaTime;
 
         for (int i = 0; i < maxIterations && elapsedTime < maxPredictionTime; i++)
         {
+            // 포탈 충돌 검사 (쿨다운 중이 아닐 때만)
+            if (portalCooldown <= 0f)
+            {
+                foreach (var portal in entryPortals)
+                {
+                    Collider2D portalCollider = portal.GetComponent<Collider2D>();
+                    if (portalCollider != null)
+                    {
+                        // 포탈과의 거리 체크
+                        float distToPortal = Vector2.Distance(position, (Vector2)portal.transform.position);
+                        float portalRadius = portalCollider.bounds.extents.magnitude;
+
+                        if (distToPortal < portalRadius + MarblePhysics.Radius)
+                        {
+                            Portal exitPortal = portal.GetLinkedPortal();
+                            if (exitPortal != null)
+                            {
+                                // 포탈 통과 처리
+                                prediction.path.Add(position); // 입구 위치 기록
+                                position = exitPortal.transform.position;
+                                velocity = exitPortal.CalculateExitVelocity(velocity, portal);
+                                prediction.path.Add(position); // 출구 위치 기록
+                                portalCooldown = portalCooldownTime;
+                                break;
+                            }
+                        }
+                    }
+                }
+            }
+            else
+            {
+                portalCooldown -= dt;
+            }
+
             // 공통 물리 시뮬레이션 사용
             var result = MarblePhysics.Simulate(position, velocity, dt, gravity, spawnerCollider);
 

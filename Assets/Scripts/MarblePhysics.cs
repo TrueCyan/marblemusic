@@ -61,6 +61,21 @@ public static class MarblePhysics
         Vector2 velocity = startVel;
         float elapsedTime = 0f;
 
+        // Entry 포탈 캐싱
+        Portal[] allPortals = Object.FindObjectsByType<Portal>(FindObjectsSortMode.None);
+        List<Portal> entryPortals = new List<Portal>();
+        foreach (var portal in allPortals)
+        {
+            if (portal.GetPortalType() == Portal.PortalType.Entry && portal.GetLinkedPortal() != null)
+            {
+                entryPortals.Add(portal);
+            }
+        }
+
+        // 포탈 쿨다운 (무한 루프 방지)
+        float portalCooldown = 0f;
+        const float portalCooldownTime = 0.15f;
+
         // 초기 프레임
         trajectory.Add(new FrameData(0f, position, velocity));
 
@@ -69,6 +84,40 @@ public static class MarblePhysics
         for (int i = 0; i < maxIterations && elapsedTime < maxTime; i++)
         {
             float preCollisionSpeed = velocity.magnitude;
+
+            // 포탈 충돌 검사 (쿨다운 중이 아닐 때만)
+            if (portalCooldown <= 0f)
+            {
+                foreach (var portal in entryPortals)
+                {
+                    Collider2D portalCollider = portal.GetComponent<Collider2D>();
+                    if (portalCollider != null)
+                    {
+                        float distToPortal = Vector2.Distance(position, (Vector2)portal.transform.position);
+                        float portalRadius = portalCollider.bounds.extents.magnitude;
+
+                        if (distToPortal < portalRadius + Radius)
+                        {
+                            Portal exitPortal = portal.GetLinkedPortal();
+                            if (exitPortal != null)
+                            {
+                                // 포탈 통과 처리
+                                position = exitPortal.transform.position;
+                                velocity = exitPortal.CalculateExitVelocity(velocity, portal);
+                                portalCooldown = portalCooldownTime;
+
+                                // 포탈 통과 프레임 기록
+                                trajectory.Add(new FrameData(elapsedTime, position, velocity, false, preCollisionSpeed));
+                                break;
+                            }
+                        }
+                    }
+                }
+            }
+            else
+            {
+                portalCooldown -= dt;
+            }
 
             // 물리 시뮬레이션
             var result = Simulate(position, velocity, dt, gravity, ignoreCollider);

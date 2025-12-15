@@ -154,11 +154,11 @@ public class Portal : MonoBehaviour
         // 속도 처리
         if (preserveVelocity)
         {
-            // 입구 포탈과 출구 포탈의 회전 차이 계산
-            // 180도 추가: 입구로 들어간 방향의 반대로 나옴
+            // 입구/출구 포탈의 회전 차이만큼 속도 벡터를 회전
+            // 같은 방향이면 그대로, 포탈이 회전되어 있으면 그만큼 회전
             float entryAngle = transform.eulerAngles.z;
             float exitAngle = linkedPortal.transform.eulerAngles.z;
-            float angleDiff = (exitAngle - entryAngle + 180f) * Mathf.Deg2Rad;
+            float angleDiff = (exitAngle - entryAngle) * Mathf.Deg2Rad;
 
             Vector2 newVelocity = new Vector2(
                 currentVelocity.x * Mathf.Cos(angleDiff) - currentVelocity.y * Mathf.Sin(angleDiff),
@@ -249,6 +249,32 @@ public class Portal : MonoBehaviour
     public Portal GetLinkedPortal()
     {
         return linkedPortal;
+    }
+
+    /// <summary>
+    /// 포탈 통과 시 속도 계산 (경로 예측용)
+    /// </summary>
+    public Vector2 CalculateExitVelocity(Vector2 entryVelocity, Portal entryPortal)
+    {
+        // 입구/출구 포탈의 회전 차이만큼 속도 벡터를 회전
+        float entryAngle = entryPortal.transform.eulerAngles.z;
+        float exitAngle = transform.eulerAngles.z;
+        float angleDiff = (exitAngle - entryAngle) * Mathf.Deg2Rad;
+
+        Vector2 newVelocity = new Vector2(
+            entryVelocity.x * Mathf.Cos(angleDiff) - entryVelocity.y * Mathf.Sin(angleDiff),
+            entryVelocity.x * Mathf.Sin(angleDiff) + entryVelocity.y * Mathf.Cos(angleDiff)
+        );
+
+        return newVelocity * velocityMultiplier;
+    }
+
+    /// <summary>
+    /// 포탈의 앞 방향 (바라보는 방향) 반환
+    /// </summary>
+    public Vector2 GetForwardDirection()
+    {
+        return -transform.up;
     }
 
     private void OnDestroy()

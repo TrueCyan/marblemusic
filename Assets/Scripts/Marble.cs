@@ -174,8 +174,10 @@ public class Marble : MonoBehaviour
 
         if (trailRenderer != null)
         {
-            trailRenderer.startColor = color;
-            trailRenderer.endColor = new Color(color.r, color.g, color.b, 0f);
+            // 하늘색 트레일, 투명도 낮춤
+            Color skyBlue = new Color(0.5f, 0.8f, 1f, 0.3f);
+            trailRenderer.startColor = skyBlue;
+            trailRenderer.endColor = new Color(0.5f, 0.8f, 1f, 0f);
         }
     }
 

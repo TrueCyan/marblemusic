@@ -26,10 +26,12 @@ public class ObjectPlacer : MonoBehaviour
     [Header("Beat Snap Settings")]
     [SerializeField] private bool enableBeatSnap = true;
     [SerializeField] private float beatSnapDistance = 0.8f;
-    [SerializeField] private float instrumentRadius = 0.5f;
-    [SerializeField] private float marbleRadius = 0.15f;
+    [SerializeField] private float defaultInstrumentRadius = 0.5f;
     [SerializeField] private Color snapIndicatorColor = new Color(0f, 1f, 0.5f, 0.8f);
     [SerializeField] private float bounceAngleSnapStep = 15f;
+
+    // 실제 콜라이더 크기 (프리팹에서 자동 계산됨)
+    private float currentInstrumentRadius = 0.5f;
 
     [Header("Current State")]
     [SerializeField] private PlacementMode currentMode = PlacementMode.Play;
@@ -632,7 +634,7 @@ public class ObjectPlacer : MonoBehaviour
         sr.sprite = CreateCircleSprite();
         sr.color = snapIndicatorColor;
         sr.sortingOrder = 15;
-        snapIndicator.transform.localScale = Vector3.one * (instrumentRadius * 2f + 0.1f);
+        snapIndicator.transform.localScale = Vector3.one * (defaultInstrumentRadius * 2f + 0.1f);
         snapIndicator.SetActive(false);
 
         GameObject lineObj = new GameObject("SnapLine");
@@ -735,7 +737,9 @@ public class ObjectPlacer : MonoBehaviour
                 mouseDir = new Vector2(Mathf.Cos(rad), Mathf.Sin(rad));
             }
 
-            float totalRadius = instrumentRadius + marbleRadius;
+            // 실제 콜라이더 크기 사용: 구슬 반지름 + 악기 콜라이더 반지름
+            float marbleRadius = MarblePhysics.Radius;
+            float totalRadius = currentInstrumentRadius + marbleRadius;
             Vector3 snapPos = (Vector3)(markerPos + mouseDir * totalRadius);
             snapPos.z = 0;
 
@@ -749,6 +753,67 @@ public class ObjectPlacer : MonoBehaviour
     private float SnapAngle(float angle, float step)
     {
         return Mathf.Round(angle / step) * step;
+    }
+
+    /// <summary>
+    /// 프리팹에서 콜라이더 반지름을 추출 (CircleCollider2D 또는 Bounds 기반)
+    /// </summary>
+    private float GetColliderRadiusFromPrefab(GameObject prefab)
+    {
+        if (prefab == null) return defaultInstrumentRadius;
+
+        // CircleCollider2D 확인
+        CircleCollider2D circleCollider = prefab.GetComponent<CircleCollider2D>();
+        if (circleCollider != null)
+        {
+            // 스케일 적용된 반지름 반환
+            float scaleMax = Mathf.Max(prefab.transform.localScale.x, prefab.transform.localScale.y);
+            return circleCollider.radius * scaleMax;
+        }
+
+        // BoxCollider2D 확인 (원형 근사)
+        BoxCollider2D boxCollider = prefab.GetComponent<BoxCollider2D>();
+        if (boxCollider != null)
+        {
+            Vector2 size = boxCollider.size;
+            float scaleX = prefab.transform.localScale.x;
+            float scaleY = prefab.transform.localScale.y;
+            // 박스의 절반 대각선 길이를 반지름으로 사용
+            return Mathf.Max(size.x * scaleX, size.y * scaleY) * 0.5f;
+        }
+
+        // CapsuleCollider2D 확인
+        CapsuleCollider2D capsuleCollider = prefab.GetComponent<CapsuleCollider2D>();
+        if (capsuleCollider != null)
+        {
+            float scaleMax = Mathf.Max(prefab.transform.localScale.x, prefab.transform.localScale.y);
+            return Mathf.Max(capsuleCollider.size.x, capsuleCollider.size.y) * 0.5f * scaleMax;
+        }
+
+        // PolygonCollider2D 확인 (Bounds 기반)
+        PolygonCollider2D polyCollider = prefab.GetComponent<PolygonCollider2D>();
+        if (polyCollider != null)
+        {
+            Bounds bounds = polyCollider.bounds;
+            return Mathf.Max(bounds.extents.x, bounds.extents.y);
+        }
+
+        // 콜라이더가 없으면 기본값
+        return defaultInstrumentRadius;
+    }
+
+    /// <summary>
+    /// 현재 선택된 프리팹의 콜라이더 반지름 업데이트
+    /// </summary>
+    private void UpdateCurrentInstrumentRadius()
+    {
+        currentInstrumentRadius = GetColliderRadiusFromPrefab(currentSelectedPrefab);
+
+        // 스냅 인디케이터 크기도 업데이트
+        if (snapIndicator != null)
+        {
+            snapIndicator.transform.localScale = Vector3.one * (currentInstrumentRadius * 2f + 0.1f);
+        }
     }
 
     #endregion
@@ -1373,10 +1438,10 @@ public class ObjectPlacer : MonoBehaviour
 
     public void SetInstrumentRadius(float radius)
     {
-        instrumentRadius = radius;
+        currentInstrumentRadius = radius;
         if (snapIndicator != null)
         {
-            snapIndicator.transform.localScale = Vector3.one * (instrumentRadius * 2f + 0.1f);
+            snapIndicator.transform.localScale = Vector3.one * (currentInstrumentRadius * 2f + 0.1f);
         }
     }
 
@@ -1386,6 +1451,7 @@ public class ObjectPlacer : MonoBehaviour
         currentInstrumentData = null;
         isPlacingPortal = false;
         placedPortalA = null;
+        UpdateCurrentInstrumentRadius();
         SetMode(PlacementMode.Edit);
     }
 
@@ -1395,6 +1461,7 @@ public class ObjectPlacer : MonoBehaviour
         currentSelectedPrefab = instrumentData?.Prefab;
         isPlacingPortal = false;
         placedPortalA = null;
+        UpdateCurrentInstrumentRadius();
         SetMode(PlacementMode.Edit);
     }
 

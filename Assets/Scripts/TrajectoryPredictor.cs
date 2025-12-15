@@ -43,7 +43,8 @@ public class TrajectoryPredictor : MonoBehaviour
         public Vector2 velocity;       // 해당 시점 구슬 속도
         public float time;             // 발사 후 경과 시간
         public int beatNumber;         // 박자 번호 (1부터 시작)
-        public MarbleSpawner spawner;  // 소속 스포너
+        public MarbleSpawner spawner;  // 소속 스포너 (MarbleSpawner)
+        public GameObject spawnerObject; // 소속 스포너 오브젝트 (일반용)
 
         public BeatMarkerData(Vector2 pos, Vector2 vel, float t, int beat, MarbleSpawner sp)
         {
@@ -52,6 +53,17 @@ public class TrajectoryPredictor : MonoBehaviour
             time = t;
             beatNumber = beat;
             spawner = sp;
+            spawnerObject = sp?.gameObject;
+        }
+
+        public BeatMarkerData(Vector2 pos, Vector2 vel, float t, int beat, GameObject spawnerObj)
+        {
+            position = pos;
+            velocity = vel;
+            time = t;
+            beatNumber = beat;
+            spawner = null;
+            spawnerObject = spawnerObj;
         }
     }
 
@@ -59,13 +71,15 @@ public class TrajectoryPredictor : MonoBehaviour
     private class SpawnerPrediction
     {
         public MarbleSpawner spawner;
+        public PeriodicSpawner periodicSpawner;
+        public GameObject spawnerObject;
         public List<Vector2> path = new List<Vector2>();
         public List<BeatMarkerData> beatMarkers = new List<BeatMarkerData>();
         public LineRenderer lineRenderer;
         public List<GameObject> markerObjects = new List<GameObject>();
     }
 
-    private Dictionary<MarbleSpawner, SpawnerPrediction> predictions = new Dictionary<MarbleSpawner, SpawnerPrediction>();
+    private Dictionary<GameObject, SpawnerPrediction> predictions = new Dictionary<GameObject, SpawnerPrediction>();
     private List<BeatMarkerData> allBeatMarkers = new List<BeatMarkerData>();
     private bool isVisible = false;
 
@@ -149,8 +163,16 @@ public class TrajectoryPredictor : MonoBehaviour
     {
         HideAllPredictions();
 
-        MarbleSpawner[] spawners = FindObjectsByType<MarbleSpawner>(FindObjectsSortMode.None);
-        foreach (var spawner in spawners)
+        // MarbleSpawner 예측
+        MarbleSpawner[] marbleSpawners = FindObjectsByType<MarbleSpawner>(FindObjectsSortMode.None);
+        foreach (var spawner in marbleSpawners)
+        {
+            PredictForSpawner(spawner);
+        }
+
+        // PeriodicSpawner 예측
+        PeriodicSpawner[] periodicSpawners = FindObjectsByType<PeriodicSpawner>(FindObjectsSortMode.None);
+        foreach (var spawner in periodicSpawners)
         {
             PredictForSpawner(spawner);
         }
@@ -159,21 +181,24 @@ public class TrajectoryPredictor : MonoBehaviour
     }
 
     /// <summary>
-    /// 특정 스포너의 경로 예측
+    /// 특정 스포너의 경로 예측 (MarbleSpawner)
     /// </summary>
     public void PredictForSpawner(MarbleSpawner spawner)
     {
         if (spawner == null) return;
 
+        GameObject spawnerObj = spawner.gameObject;
+
         // 기존 예측 제거
-        if (predictions.ContainsKey(spawner))
+        if (predictions.ContainsKey(spawnerObj))
         {
-            ClearSpawnerPrediction(predictions[spawner]);
-            predictions.Remove(spawner);
+            ClearSpawnerPrediction(predictions[spawnerObj]);
+            predictions.Remove(spawnerObj);
         }
 
         SpawnerPrediction prediction = new SpawnerPrediction();
         prediction.spawner = spawner;
+        prediction.spawnerObject = spawnerObj;
 
         // 라인 렌더러 생성
         GameObject lineObj = new GameObject($"Trajectory_{spawner.name}");
@@ -183,11 +208,49 @@ public class TrajectoryPredictor : MonoBehaviour
 
         // 경로 계산
         Vector2 startPos = spawner.transform.position;
-        Vector2 initialVel = GetSpawnerInitialVelocity(spawner);
+        Vector2 initialVel = spawner.GetInitialVelocity();
 
-        CalculatePrediction(prediction, startPos, initialVel, spawner);
+        CalculatePrediction(prediction, startPos, initialVel, spawnerObj);
 
-        predictions[spawner] = prediction;
+        predictions[spawnerObj] = prediction;
+
+        // 전체 마커 리스트 갱신
+        UpdateAllBeatMarkers();
+    }
+
+    /// <summary>
+    /// 특정 스포너의 경로 예측 (PeriodicSpawner)
+    /// </summary>
+    public void PredictForSpawner(PeriodicSpawner spawner)
+    {
+        if (spawner == null) return;
+
+        GameObject spawnerObj = spawner.gameObject;
+
+        // 기존 예측 제거
+        if (predictions.ContainsKey(spawnerObj))
+        {
+            ClearSpawnerPrediction(predictions[spawnerObj]);
+            predictions.Remove(spawnerObj);
+        }
+
+        SpawnerPrediction prediction = new SpawnerPrediction();
+        prediction.periodicSpawner = spawner;
+        prediction.spawnerObject = spawnerObj;
+
+        // 라인 렌더러 생성
+        GameObject lineObj = new GameObject($"Trajectory_{spawner.name}");
+        lineObj.transform.SetParent(transform);
+        prediction.lineRenderer = lineObj.AddComponent<LineRenderer>();
+        SetupLineRenderer(prediction.lineRenderer);
+
+        // 경로 계산 - 스폰 오프셋 적용
+        Vector2 startPos = (Vector2)spawner.transform.position + spawner.GetSpawnOffset();
+        Vector2 initialVel = spawner.GetInitialVelocity();
+
+        CalculatePrediction(prediction, startPos, initialVel, spawnerObj);
+
+        predictions[spawnerObj] = prediction;
 
         // 전체 마커 리스트 갱신
         UpdateAllBeatMarkers();
@@ -196,7 +259,7 @@ public class TrajectoryPredictor : MonoBehaviour
     /// <summary>
     /// 경로 예측 계산
     /// </summary>
-    private void CalculatePrediction(SpawnerPrediction prediction, Vector2 startPos, Vector2 initialVel, MarbleSpawner spawner)
+    private void CalculatePrediction(SpawnerPrediction prediction, Vector2 startPos, Vector2 initialVel, GameObject spawnerObj)
     {
         prediction.path.Clear();
         prediction.beatMarkers.Clear();
@@ -210,7 +273,7 @@ public class TrajectoryPredictor : MonoBehaviour
         int beatCount = 0;
 
         // 스포너 콜라이더 참조 (무시용)
-        Collider2D spawnerCollider = spawner != null ? spawner.GetComponent<Collider2D>() : null;
+        Collider2D spawnerCollider = spawnerObj != null ? spawnerObj.GetComponent<Collider2D>() : null;
 
         // 모든 Entry 포탈 캐싱
         Portal[] allPortals = FindObjectsByType<Portal>(FindObjectsSortMode.None);
@@ -289,7 +352,7 @@ public class TrajectoryPredictor : MonoBehaviour
             if (showBeatMarkers && elapsedTime >= nextBeatTime)
             {
                 beatCount++;
-                BeatMarkerData marker = new BeatMarkerData(position, velocity, nextBeatTime, beatCount, spawner);
+                BeatMarkerData marker = new BeatMarkerData(position, velocity, nextBeatTime, beatCount, spawnerObj);
                 prediction.beatMarkers.Add(marker);
                 CreateBeatMarkerVisual(prediction, marker);
                 nextBeatTime += beatInterval;
@@ -458,14 +521,6 @@ public class TrajectoryPredictor : MonoBehaviour
     }
 
     /// <summary>
-    /// 스포너의 초기 속도 가져오기
-    /// </summary>
-    private Vector2 GetSpawnerInitialVelocity(MarbleSpawner spawner)
-    {
-        return spawner.GetInitialVelocity();
-    }
-
-    /// <summary>
     /// 모든 예측 숨기기
     /// </summary>
     public void HideAllPredictions()
@@ -520,10 +575,25 @@ public class TrajectoryPredictor : MonoBehaviour
     {
         if (!isVisible) return;
 
-        List<MarbleSpawner> spawners = new List<MarbleSpawner>(predictions.Keys);
-        foreach (var spawner in spawners)
+        // 현재 예측된 스포너들 목록 복사
+        List<GameObject> spawnerObjs = new List<GameObject>(predictions.Keys);
+        foreach (var spawnerObj in spawnerObjs)
         {
-            PredictForSpawner(spawner);
+            if (spawnerObj == null) continue;
+
+            // 스포너 타입에 따라 적절한 메서드 호출
+            MarbleSpawner marbleSpawner = spawnerObj.GetComponent<MarbleSpawner>();
+            if (marbleSpawner != null)
+            {
+                PredictForSpawner(marbleSpawner);
+                continue;
+            }
+
+            PeriodicSpawner periodicSpawner = spawnerObj.GetComponent<PeriodicSpawner>();
+            if (periodicSpawner != null)
+            {
+                PredictForSpawner(periodicSpawner);
+            }
         }
     }
 
@@ -610,11 +680,11 @@ public class TrajectoryPredictor : MonoBehaviour
     }
 
     /// <summary>
-    /// 특정 스포너의 예측 경로 반환
+    /// 특정 스포너의 예측 경로 반환 (MarbleSpawner)
     /// </summary>
     public List<Vector2> GetPredictedPath(MarbleSpawner spawner)
     {
-        if (predictions.TryGetValue(spawner, out SpawnerPrediction prediction))
+        if (spawner != null && predictions.TryGetValue(spawner.gameObject, out SpawnerPrediction prediction))
         {
             return new List<Vector2>(prediction.path);
         }
@@ -622,11 +692,35 @@ public class TrajectoryPredictor : MonoBehaviour
     }
 
     /// <summary>
-    /// 특정 스포너의 박자 마커 반환
+    /// 특정 스포너의 예측 경로 반환 (PeriodicSpawner)
+    /// </summary>
+    public List<Vector2> GetPredictedPath(PeriodicSpawner spawner)
+    {
+        if (spawner != null && predictions.TryGetValue(spawner.gameObject, out SpawnerPrediction prediction))
+        {
+            return new List<Vector2>(prediction.path);
+        }
+        return new List<Vector2>();
+    }
+
+    /// <summary>
+    /// 특정 스포너의 박자 마커 반환 (MarbleSpawner)
     /// </summary>
     public List<BeatMarkerData> GetBeatMarkersForSpawner(MarbleSpawner spawner)
     {
-        if (predictions.TryGetValue(spawner, out SpawnerPrediction prediction))
+        if (spawner != null && predictions.TryGetValue(spawner.gameObject, out SpawnerPrediction prediction))
+        {
+            return new List<BeatMarkerData>(prediction.beatMarkers);
+        }
+        return new List<BeatMarkerData>();
+    }
+
+    /// <summary>
+    /// 특정 스포너의 박자 마커 반환 (PeriodicSpawner)
+    /// </summary>
+    public List<BeatMarkerData> GetBeatMarkersForSpawner(PeriodicSpawner spawner)
+    {
+        if (spawner != null && predictions.TryGetValue(spawner.gameObject, out SpawnerPrediction prediction))
         {
             return new List<BeatMarkerData>(prediction.beatMarkers);
         }
@@ -651,15 +745,16 @@ public class TrajectoryPredictor : MonoBehaviour
 
         SpawnerPrediction prediction = new SpawnerPrediction();
         prediction.spawner = tempSpawner;
+        prediction.spawnerObject = tempObj;
 
         GameObject lineObj = new GameObject("Trajectory_Temp");
         lineObj.transform.SetParent(transform);
         prediction.lineRenderer = lineObj.AddComponent<LineRenderer>();
         SetupLineRenderer(prediction.lineRenderer);
 
-        CalculatePrediction(prediction, startPosition, initialVelocity, tempSpawner);
+        CalculatePrediction(prediction, startPosition, initialVelocity, tempObj);
 
-        predictions[tempSpawner] = prediction;
+        predictions[tempObj] = prediction;
         UpdateAllBeatMarkers();
         isVisible = true;
 

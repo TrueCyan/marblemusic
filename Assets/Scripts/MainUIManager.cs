@@ -499,16 +499,32 @@ public class MainUIManager : MonoBehaviour
     {
         ClearContent(parent);
 
+        // 일반 스포너
         GameObject spawnerPrefab = GameManager.Instance?.SpawnerPrefab;
-        if (spawnerPrefab == null) return;
-
-        Sprite spawnerSprite = GetSpriteFromPrefab(spawnerPrefab);
-        GameObject item = CreateDockItem("Spawner", parent, spawnerSprite);
-
-        Button btn = item.GetComponent<Button>();
-        if (btn != null)
+        if (spawnerPrefab != null)
         {
-            btn.onClick.AddListener(() => OnSpawnerClicked(item, tabIndex));
+            Sprite spawnerSprite = GetSpriteFromPrefab(spawnerPrefab);
+            GameObject item = CreateDockItem("Spawner", parent, spawnerSprite);
+
+            Button btn = item.GetComponent<Button>();
+            if (btn != null)
+            {
+                btn.onClick.AddListener(() => OnSpawnerClicked(item, tabIndex));
+            }
+        }
+
+        // 주기적 스포너
+        GameObject periodicSpawnerPrefab = GameManager.Instance?.PeriodicSpawnerPrefab;
+        if (periodicSpawnerPrefab != null)
+        {
+            Sprite periodicSprite = GetSpriteFromPrefab(periodicSpawnerPrefab);
+            GameObject periodicItem = CreateDockItem("Periodic", parent, periodicSprite);
+
+            Button periodicBtn = periodicItem.GetComponent<Button>();
+            if (periodicBtn != null)
+            {
+                periodicBtn.onClick.AddListener(() => OnPeriodicSpawnerClicked(periodicItem, tabIndex));
+            }
         }
     }
 
@@ -516,6 +532,12 @@ public class MainUIManager : MonoBehaviour
     {
         SelectDockItem(item);
         ObjectPlacer.Instance?.SelectSpawnerPrefab();
+    }
+
+    private void OnPeriodicSpawnerClicked(GameObject item, int tabIndex)
+    {
+        SelectDockItem(item);
+        ObjectPlacer.Instance?.SelectPeriodicSpawnerPrefab();
     }
 
     /// <summary>
@@ -679,6 +701,20 @@ public class MainUIManager : MonoBehaviour
         selectedDockItem = item;
         Image img = item.GetComponent<Image>();
         if (img != null) img.color = selectedColor;
+    }
+
+    /// <summary>
+    /// 독 선택 해제 (외부에서 호출 가능)
+    /// </summary>
+    public void ClearDockSelection()
+    {
+        if (selectedDockItem != null)
+        {
+            Image img = selectedDockItem.GetComponent<Image>();
+            if (img != null) img.color = normalColor;
+            selectedDockItem = null;
+        }
+        selectedInstrumentData = null;
     }
 
     #endregion

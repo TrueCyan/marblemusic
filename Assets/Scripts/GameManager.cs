@@ -10,6 +10,7 @@ public class GameManager : MonoBehaviour
     [Header("Prefabs (Non-Instrument)")]
     [SerializeField] private GameObject marblePrefab;
     [SerializeField] private GameObject spawnerPrefab;
+    [SerializeField] private GameObject periodicSpawnerPrefab;
     [SerializeField] private GameObject portalAPrefab;
     [SerializeField] private GameObject portalBPrefab;
 
@@ -26,6 +27,7 @@ public class GameManager : MonoBehaviour
     public bool IsPaused => isPaused;
     public GameObject MarblePrefab => marblePrefab;
     public GameObject SpawnerPrefab => spawnerPrefab;
+    public GameObject PeriodicSpawnerPrefab => periodicSpawnerPrefab;
     public GameObject PortalAPrefab => portalAPrefab;
     public GameObject PortalBPrefab => portalBPrefab;
 
@@ -80,6 +82,19 @@ public class GameManager : MonoBehaviour
         foreach (var spawner in spawners)
         {
             spawner.SetBPM(globalBPM);
+        }
+
+        // 모든 주기적 스포너에 BPM 전파
+        PeriodicSpawner[] periodicSpawners = FindObjectsOfType<PeriodicSpawner>();
+        foreach (var spawner in periodicSpawners)
+        {
+            spawner.SetBPM(globalBPM);
+        }
+
+        // BeatSyncManager에 BPM 전파
+        if (BeatSyncManager.Instance != null)
+        {
+            BeatSyncManager.Instance.SetBPM(globalBPM);
         }
 
         // 경로 예측기에도 전파

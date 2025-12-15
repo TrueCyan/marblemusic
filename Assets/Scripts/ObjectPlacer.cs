@@ -13,6 +13,7 @@ public class ObjectPlacer : MonoBehaviour
 
     // GameManager에서 프리팹 참조
     private GameObject SpawnerPrefab => GameManager.Instance?.SpawnerPrefab;
+    private GameObject PeriodicSpawnerPrefab => GameManager.Instance?.PeriodicSpawnerPrefab;
     private GameObject PortalAPrefab => GameManager.Instance?.PortalAPrefab;
     private GameObject PortalBPrefab => GameManager.Instance?.PortalBPrefab;
 
@@ -255,6 +256,7 @@ public class ObjectPlacer : MonoBehaviour
         Collider2D hit = Physics2D.OverlapPoint(mouseWorldPos);
         if (hit != null && (hit.GetComponent<InstrumentObject>() != null ||
                            hit.GetComponent<MarbleSpawner>() != null ||
+                           hit.GetComponent<PeriodicSpawner>() != null ||
                            hit.GetComponent<Portal>() != null))
         {
             SelectObject(hit.gameObject);
@@ -269,6 +271,7 @@ public class ObjectPlacer : MonoBehaviour
         Collider2D hit = Physics2D.OverlapPoint(mouseWorldPos);
         if (hit != null && (hit.GetComponent<InstrumentObject>() != null ||
                            hit.GetComponent<MarbleSpawner>() != null ||
+                           hit.GetComponent<PeriodicSpawner>() != null ||
                            hit.GetComponent<Portal>() != null))
         {
             SelectObject(hit.gameObject);
@@ -309,7 +312,9 @@ public class ObjectPlacer : MonoBehaviour
                 return;
             }
 
-            if (hit.GetComponent<InstrumentObject>() != null || hit.GetComponent<MarbleSpawner>() != null)
+            if (hit.GetComponent<InstrumentObject>() != null ||
+                hit.GetComponent<MarbleSpawner>() != null ||
+                hit.GetComponent<PeriodicSpawner>() != null)
             {
                 DeleteObject(hit.gameObject);
             }
@@ -448,6 +453,12 @@ public class ObjectPlacer : MonoBehaviour
         if (spawner != null)
         {
             data.prefab = SpawnerPrefab;
+        }
+
+        PeriodicSpawner periodicSpawner = obj.GetComponent<PeriodicSpawner>();
+        if (periodicSpawner != null)
+        {
+            data.prefab = PeriodicSpawnerPrefab;
         }
 
         Portal portal = obj.GetComponent<Portal>();
@@ -777,6 +788,20 @@ public class ObjectPlacer : MonoBehaviour
             return;
         }
 
+        // 스포너류인지 확인
+        bool isSpawnerType = IsSpawnerPrefab(prefab);
+
+        // 스포너류 배치 시 기존 스포너 위치로 스냅 후 덮어쓰기
+        if (isSpawnerType)
+        {
+            var spawnerSnapPos = TryGetSpawnerSnapPosition(position);
+            if (spawnerSnapPos.HasValue)
+            {
+                position = spawnerSnapPos.Value;
+            }
+            TryReplaceExistingSpawner(position);
+        }
+
         Quaternion rotation = previewObject != null ? previewObject.transform.rotation : Quaternion.identity;
         GameObject placed = Instantiate(prefab, position, rotation);
 
@@ -799,6 +824,88 @@ public class ObjectPlacer : MonoBehaviour
 
         RefreshTrajectoryPrediction();
         HideSnapIndicator();
+
+        // 스포너류는 연속 설치 안 됨 - 설치 후 선택 해제
+        if (isSpawnerType)
+        {
+            ClearPrefabSelection();
+        }
+    }
+
+    /// <summary>
+    /// 프리팹이 스포너류인지 확인
+    /// </summary>
+    private bool IsSpawnerPrefab(GameObject prefab)
+    {
+        if (prefab == null) return false;
+        return prefab == SpawnerPrefab || prefab == PeriodicSpawnerPrefab;
+    }
+
+    /// <summary>
+    /// 근처 스포너가 있으면 그 위치로 스냅
+    /// </summary>
+    private Vector3? TryGetSpawnerSnapPosition(Vector3 position)
+    {
+        float checkRadius = 0.5f;
+        Collider2D[] hits = Physics2D.OverlapCircleAll(position, checkRadius);
+
+        GameObject closestSpawner = null;
+        float closestDist = float.MaxValue;
+
+        foreach (var hit in hits)
+        {
+            if (hit == null) continue;
+
+            MarbleSpawner existingSpawner = hit.GetComponent<MarbleSpawner>();
+            PeriodicSpawner existingPeriodicSpawner = hit.GetComponent<PeriodicSpawner>();
+
+            if (existingSpawner != null || existingPeriodicSpawner != null)
+            {
+                float dist = Vector2.Distance(position, hit.transform.position);
+                if (dist < closestDist)
+                {
+                    closestDist = dist;
+                    closestSpawner = hit.gameObject;
+                }
+            }
+        }
+
+        if (closestSpawner != null)
+        {
+            return closestSpawner.transform.position;
+        }
+
+        return null;
+    }
+
+    /// <summary>
+    /// 같은 위치에 있는 기존 스포너를 삭제
+    /// </summary>
+    private void TryReplaceExistingSpawner(Vector3 position)
+    {
+        float checkRadius = 0.3f;
+        Collider2D[] hits = Physics2D.OverlapCircleAll(position, checkRadius);
+
+        foreach (var hit in hits)
+        {
+            if (hit == null) continue;
+
+            // 기존 스포너 또는 주기적 스포너가 있으면 삭제
+            MarbleSpawner existingSpawner = hit.GetComponent<MarbleSpawner>();
+            PeriodicSpawner existingPeriodicSpawner = hit.GetComponent<PeriodicSpawner>();
+
+            if (existingSpawner != null || existingPeriodicSpawner != null)
+            {
+                // 삭제 액션 기록
+                RecordDeleteAction(hit.gameObject);
+                Destroy(hit.gameObject);
+
+                if (selectedObject == hit.gameObject)
+                {
+                    selectedObject = null;
+                }
+            }
+        }
     }
 
     private void StartPortalPlacement(Vector3 position)
@@ -960,6 +1067,16 @@ public class ObjectPlacer : MonoBehaviour
             if (col != null) col.enabled = false;
 
             SetObjectAlpha(previewObject, 0.5f);
+        }
+
+        // 스포너류일 때 기존 스포너 위치로 스냅
+        if (IsSpawnerPrefab(prefab))
+        {
+            var spawnerSnapPos = TryGetSpawnerSnapPosition(position);
+            if (spawnerSnapPos.HasValue)
+            {
+                position = spawnerSnapPos.Value;
+            }
         }
 
         if (snapToGrid && gridSize > 0 && currentSnapTarget == null)
@@ -1124,6 +1241,12 @@ public class ObjectPlacer : MonoBehaviour
         currentInstrumentData = null;
         HidePreview();
         HideSnapIndicator();
+
+        // 독 선택도 해제
+        if (MainUIManager.Instance != null)
+        {
+            MainUIManager.Instance.ClearDockSelection();
+        }
     }
 
     #endregion
@@ -1170,6 +1293,18 @@ public class ObjectPlacer : MonoBehaviour
             return;
         }
         currentSelectedPrefab = SpawnerPrefab;
+        currentInstrumentData = null;
+        SetMode(PlacementMode.Edit);
+    }
+
+    public void SelectPeriodicSpawnerPrefab()
+    {
+        if (PeriodicSpawnerPrefab == null)
+        {
+            Debug.LogWarning("Periodic Spawner prefab is not assigned in GameManager!");
+            return;
+        }
+        currentSelectedPrefab = PeriodicSpawnerPrefab;
         currentInstrumentData = null;
         SetMode(PlacementMode.Edit);
     }

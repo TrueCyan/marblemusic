@@ -9,8 +9,8 @@ public static class MarblePhysics
 {
     // 물리 상수
     public const float Radius = 0.05f;
-    public const float Bounciness = 0.5f;
-    public const float Friction = 0.2f;
+    public const float Bounciness = 0.95f;  // 거의 완전 탄성 (1.0 = 완전 탄성)
+    public const float Friction = 0.05f;    // 마찰 감소
 
     /// <summary>
     /// 프레임별 데이터 (경로 저장용)

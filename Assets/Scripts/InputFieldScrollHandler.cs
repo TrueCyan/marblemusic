@@ -11,6 +11,8 @@ public class InputFieldScrollHandler : MonoBehaviour, IScrollHandler
     private TMP_InputField inputField;
 
     [SerializeField] private float scrollSpeed = 3f;
+    [SerializeField] private float topPadding = 5f;
+    [SerializeField] private float bottomPadding = 5f;
 
     private void Awake()
     {
@@ -32,13 +34,13 @@ public class InputFieldScrollHandler : MonoBehaviour, IScrollHandler
         // 스크롤이 필요 없으면 리턴
         if (textHeight <= viewportHeight) return;
 
-        // 현재 스크롤 위치 조정 (휠 위로 = 텍스트 아래로 = position.y 감소)
+        // 현재 스크롤 위치 조정 (휠 아래로 = 텍스트 위로 = position.y 증가)
         float currentPos = inputField.textComponent.rectTransform.anchoredPosition.y;
-        float newPos = currentPos + scrollDelta * scrollSpeed;
+        float newPos = currentPos - scrollDelta * scrollSpeed;
 
-        // 스크롤 범위: 0 (맨 위) ~ maxScroll (맨 아래)
+        // 스크롤 범위: -topPadding (맨 위) ~ maxScroll + bottomPadding (맨 아래)
         float maxScroll = textHeight - viewportHeight;
-        newPos = Mathf.Clamp(newPos, 0, maxScroll);
+        newPos = Mathf.Clamp(newPos, -topPadding, maxScroll + bottomPadding);
 
         // 스크롤 적용
         Vector2 pos = inputField.textComponent.rectTransform.anchoredPosition;

@@ -12,12 +12,12 @@ PluginImporter:
   validateReferences: 1
   platformData:
   - first:
-      : WebGL
+      WebGL: WebGL
     second:
       enabled: 1
       settings: {}
   - first:
-      Any: 
+      Any:
     second:
       enabled: 0
       settings: {}

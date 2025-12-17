@@ -1,4 +1,5 @@
 mergeInto(LibraryManager.library, {
+    CopyToClipboardJS__deps: ['$UTF8ToString'],
     CopyToClipboardJS: function(textPtr) {
         var text = UTF8ToString(textPtr);
 

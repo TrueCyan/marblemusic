@@ -31,6 +31,13 @@ public class LoadSceneManager : MonoBehaviour
     [SerializeField] private Button deleteConfirmYesButton;
     [SerializeField] private Button deleteConfirmNoButton;
 
+    [Header("Import Popup")]
+    [SerializeField] private Button importButton;
+    [SerializeField] private GameObject importPopup;
+    [SerializeField] private TMP_InputField importInputField;
+    [SerializeField] private Button importConfirmButton;
+    [SerializeField] private Button importCancelButton;
+
     [Header("Toast")]
     [SerializeField] private GameObject toastPanel;
     [SerializeField] private TextMeshProUGUI toastText;
@@ -54,6 +61,7 @@ public class LoadSceneManager : MonoBehaviour
         // 팝업 초기 상태
         if (renamePopup != null) renamePopup.SetActive(false);
         if (deleteConfirmPopup != null) deleteConfirmPopup.SetActive(false);
+        if (importPopup != null) importPopup.SetActive(false);
         if (toastPanel != null) toastPanel.SetActive(false);
     }
 
@@ -82,6 +90,15 @@ public class LoadSceneManager : MonoBehaviour
 
         if (deleteConfirmNoButton != null)
             deleteConfirmNoButton.onClick.AddListener(CloseDeleteConfirmPopup);
+
+        if (importButton != null)
+            importButton.onClick.AddListener(ShowImportPopup);
+
+        if (importConfirmButton != null)
+            importConfirmButton.onClick.AddListener(OnImportConfirmed);
+
+        if (importCancelButton != null)
+            importCancelButton.onClick.AddListener(CloseImportPopup);
     }
 
     private void OnBackClicked()
@@ -296,6 +313,124 @@ public class LoadSceneManager : MonoBehaviour
         CloseDeleteConfirmPopup();
         RefreshCards();
         ShowToast("Deleted!");
+    }
+
+    #endregion
+
+    #region Import Popup
+
+    private void ShowImportPopup()
+    {
+        if (importPopup != null)
+        {
+            importPopup.SetActive(true);
+
+            if (importInputField != null)
+            {
+                importInputField.text = "";
+                importInputField.Select();
+                importInputField.ActivateInputField();
+            }
+        }
+    }
+
+    private void CloseImportPopup()
+    {
+        if (importPopup != null)
+        {
+            importPopup.SetActive(false);
+        }
+    }
+
+    private void OnImportConfirmed()
+    {
+        if (importInputField == null) return;
+
+        string json = importInputField.text.Trim();
+
+        if (string.IsNullOrEmpty(json))
+        {
+            ShowToast("Please paste export data!");
+            return;
+        }
+
+        // JSON 파싱 시도
+        try
+        {
+            SaveManager.SceneSaveData data = JsonUtility.FromJson<SaveManager.SceneSaveData>(json);
+            if (data == null)
+            {
+                ShowToast("Invalid data format!");
+                return;
+            }
+
+            // 저장 이름 결정
+            string saveName = data.saveName;
+            if (string.IsNullOrEmpty(saveName))
+            {
+                saveName = System.DateTime.Now.ToString("yyyyMMdd_HHmmss");
+            }
+
+            // 이름 중복 체크 및 새 이름 생성
+            EnsureSaveManager();
+            string originalName = saveName;
+            int counter = 1;
+            while (SaveManager.Instance.SaveExists(saveName))
+            {
+                saveName = $"{originalName}_{counter}";
+                counter++;
+            }
+            data.saveName = saveName;
+
+            // 시간 업데이트
+            string now = System.DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss");
+            data.createdAt = now;
+            data.modifiedAt = now;
+
+            // PlayerPrefs에 저장
+            string newJson = JsonUtility.ToJson(data, true);
+            PlayerPrefs.SetString("Save_" + saveName, newJson);
+
+            // 저장 목록 업데이트
+            UpdateSaveListForImport(saveName, now);
+
+            PlayerPrefs.Save();
+
+            CloseImportPopup();
+            RefreshCards();
+            ShowToast($"Imported as \"{saveName}\"!");
+        }
+        catch (System.Exception e)
+        {
+            Debug.LogError($"Import failed: {e.Message}");
+            ShowToast("Import failed! Check data format.");
+        }
+    }
+
+    private void UpdateSaveListForImport(string saveName, string timestamp)
+    {
+        string listJson = PlayerPrefs.GetString("SaveList", "");
+        SaveManager.SaveListData listData;
+
+        if (string.IsNullOrEmpty(listJson))
+        {
+            listData = new SaveManager.SaveListData();
+        }
+        else
+        {
+            listData = JsonUtility.FromJson<SaveManager.SaveListData>(listJson);
+            if (listData == null) listData = new SaveManager.SaveListData();
+        }
+
+        // 새 항목 추가 (맨 앞에)
+        listData.saves.Insert(0, new SaveManager.SaveMetaData
+        {
+            saveName = saveName,
+            createdAt = timestamp,
+            modifiedAt = timestamp
+        });
+
+        PlayerPrefs.SetString("SaveList", JsonUtility.ToJson(listData));
     }
 
     #endregion

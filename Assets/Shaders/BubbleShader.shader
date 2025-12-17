@@ -4,23 +4,23 @@ Shader "Custom/BubbleShader"
     {
         _MainTex ("Sprite Texture", 2D) = "white" {}
 
-        [Header(Bubble Edge)]
-        _EdgeWidth ("Edge Width", Range(0.005, 0.05)) = 0.015
-        _EdgeColor ("Edge Color", Color) = (1, 1, 1, 0.6)
+        [Header(Thin Film Interference)]
+        _FilmThickness ("Film Thickness", Range(0.5, 3.0)) = 1.5
+        _IridescenceSpeed ("Iridescence Speed", Range(0.1, 1.0)) = 0.3
+        _IridescenceStrength ("Iridescence Strength", Range(0, 1)) = 0.6
 
-        [Header(Interior Shimmer)]
-        _ShimmerSpeed ("Shimmer Speed", Range(0.5, 5)) = 2.0
-        _ShimmerScale ("Shimmer Scale", Range(1, 10)) = 4.0
-        _ShimmerStrength ("Shimmer Strength", Range(0, 1)) = 0.4
-        _ShimmerWidth ("Shimmer Width", Range(0.05, 0.3)) = 0.15
+        [Header(Fresnel Edge)]
+        _FresnelPower ("Fresnel Power", Range(1, 5)) = 2.5
+        _EdgeTint ("Edge Tint", Color) = (0.9, 0.95, 1.0, 0.4)
 
         [Header(Highlight)]
-        _HighlightPos ("Highlight Position", Vector) = (-0.25, 0.25, 0, 0)
-        _HighlightSize ("Highlight Size", Range(0.05, 0.25)) = 0.12
-        _HighlightIntensity ("Highlight Intensity", Range(0, 1)) = 0.8
+        _HighlightPos ("Highlight Position", Vector) = (-0.2, 0.2, 0, 0)
+        _HighlightSize ("Highlight Size", Range(0.02, 0.15)) = 0.06
+        _HighlightSoftness ("Highlight Softness", Range(0.5, 3.0)) = 1.5
+        _HighlightIntensity ("Highlight Intensity", Range(0, 1)) = 0.5
 
         [Header(Base)]
-        _BaseAlpha ("Base Alpha", Range(0, 0.3)) = 0.05
+        _BaseAlpha ("Base Alpha", Range(0, 0.1)) = 0.02
     }
 
     SubShader
@@ -65,23 +65,39 @@ Shader "Custom/BubbleShader"
 
             CBUFFER_START(UnityPerMaterial)
                 float4 _MainTex_ST;
-                float _EdgeWidth;
-                float4 _EdgeColor;
-                float _ShimmerSpeed;
-                float _ShimmerScale;
-                float _ShimmerStrength;
-                float _ShimmerWidth;
+                float _FilmThickness;
+                float _IridescenceSpeed;
+                float _IridescenceStrength;
+                float _FresnelPower;
+                float4 _EdgeTint;
                 float4 _HighlightPos;
                 float _HighlightSize;
+                float _HighlightSoftness;
                 float _HighlightIntensity;
                 float _BaseAlpha;
             CBUFFER_END
 
-            // HSV to RGB
-            float3 HSVtoRGB(float h, float s, float v)
+            // 박막 간섭 색상 계산 (실제 물리 기반 근사)
+            float3 ThinFilmInterference(float thickness)
             {
-                float3 rgb = saturate(abs(fmod(h * 6.0 + float3(0.0, 4.0, 2.0), 6.0) - 3.0) - 1.0);
-                return v * lerp(float3(1, 1, 1), rgb, s);
+                // 박막 간섭으로 인한 파장별 반사율 차이를 시뮬레이션
+                // 빛의 파장: R ~650nm, G ~550nm, B ~450nm
+                float3 wavelengths = float3(650.0, 550.0, 450.0);
+
+                // 광학 경로차에 따른 간섭 패턴
+                float3 phase = thickness * 1000.0 / wavelengths;
+
+                // 간섭 패턴 (부드러운 사인파)
+                float3 interference = 0.5 + 0.5 * cos(phase * 6.28318);
+
+                // 부드러운 무지개빛
+                return interference;
+            }
+
+            // 부드러운 노이즈 함수
+            float SmoothNoise(float2 uv)
+            {
+                return frac(sin(dot(uv, float2(12.9898, 78.233))) * 43758.5453);
             }
 
             Varyings vert(Attributes IN)
@@ -101,66 +117,61 @@ Shader "Custom/BubbleShader"
                 float angle = atan2(centeredUV.y, centeredUV.x);
 
                 // 원 외부는 투명
-                float circleMask = 1.0 - smoothstep(0.48, 0.5, dist);
+                float circleMask = 1.0 - smoothstep(0.47, 0.5, dist);
                 if (circleMask <= 0) return float4(0, 0, 0, 0);
 
-                // === 얇은 테두리 ===
-                float edgeInner = 0.5 - _EdgeWidth;
-                float edgeMask = smoothstep(edgeInner - 0.01, edgeInner, dist) * circleMask;
+                // === 프레넬 효과 (가장자리가 더 잘 보임) ===
+                float fresnel = pow(dist * 2.0, _FresnelPower);
+                fresnel = saturate(fresnel);
 
-                // === 내부 반짝임 (움직이는 무지개빛 띠) ===
-                // 시간에 따라 이동하는 밴드
-                float shimmerPhase = _Time.y * _ShimmerSpeed;
+                // === 박막 간섭 무지개빛 ===
+                // 시간에 따라 천천히 흐르는 두께 변화
+                float time = _Time.y * _IridescenceSpeed;
 
-                // 여러 방향에서 지나가는 반짝임
-                float band1 = sin(centeredUV.x * _ShimmerScale + shimmerPhase) * 0.5 + 0.5;
-                float band2 = sin(centeredUV.y * _ShimmerScale - shimmerPhase * 0.7) * 0.5 + 0.5;
-                float band3 = sin((centeredUV.x + centeredUV.y) * _ShimmerScale * 0.5 + shimmerPhase * 1.3) * 0.5 + 0.5;
+                // 부드럽게 흐르는 막 두께 시뮬레이션
+                float thickness = _FilmThickness;
+                thickness += sin(angle * 2.0 + time) * 0.3;
+                thickness += sin(dist * 8.0 - time * 0.5) * 0.2;
+                thickness += cos(angle * 3.0 - time * 0.7) * 0.15;
 
-                // 밴드를 좁게 만들어 띠 형태로
-                float shimmerBand1 = smoothstep(0.5 - _ShimmerWidth, 0.5, band1) * smoothstep(0.5 + _ShimmerWidth, 0.5, band1);
-                float shimmerBand2 = smoothstep(0.5 - _ShimmerWidth, 0.5, band2) * smoothstep(0.5 + _ShimmerWidth, 0.5, band2);
-                float shimmerBand3 = smoothstep(0.5 - _ShimmerWidth * 0.7, 0.5, band3) * smoothstep(0.5 + _ShimmerWidth * 0.7, 0.5, band3);
+                // 박막 간섭 색상
+                float3 iridescence = ThinFilmInterference(thickness);
 
-                float shimmer = max(max(shimmerBand1, shimmerBand2), shimmerBand3);
+                // 가장자리에서 더 강하게 (프레넬과 결합)
+                float iridescenceMask = fresnel * _IridescenceStrength;
 
-                // 무지개색
-                float hue = frac(shimmerPhase * 0.1 + dist * 2.0 + angle * 0.3);
-                float3 shimmerColor = HSVtoRGB(hue, 0.5, 1.0);
-
-                // 내부에서만 반짝임 (테두리 제외)
-                float interiorMask = (1.0 - edgeMask) * circleMask;
-                shimmer *= interiorMask * _ShimmerStrength;
-
-                // === 하이라이트 (반사점) ===
+                // === 부드러운 하이라이트 ===
                 float2 highlightCenter = _HighlightPos.xy;
                 float highlightDist = length(centeredUV - highlightCenter);
-                float highlight = 1.0 - smoothstep(0, _HighlightSize, highlightDist);
-                highlight *= _HighlightIntensity * circleMask;
+                float highlight = exp(-highlightDist * highlightDist / (_HighlightSize * _HighlightSize) * _HighlightSoftness);
+                highlight *= _HighlightIntensity;
 
-                // 작은 보조 하이라이트
-                float2 highlight2Center = -highlightCenter * 0.6;
-                float highlight2 = 1.0 - smoothstep(0, _HighlightSize * 0.3, length(centeredUV - highlight2Center));
-                highlight2 *= _HighlightIntensity * 0.4 * circleMask;
+                // 작은 보조 하이라이트 (반대편에 희미하게)
+                float2 highlight2Center = -highlightCenter * 0.5;
+                float highlight2Dist = length(centeredUV - highlight2Center);
+                float highlight2 = exp(-highlight2Dist * highlight2Dist / (_HighlightSize * _HighlightSize * 4.0) * _HighlightSoftness);
+                highlight2 *= _HighlightIntensity * 0.2;
 
                 // === 최종 색상 조합 ===
                 float3 finalColor = float3(0, 0, 0);
                 float finalAlpha = 0;
 
-                // 베이스 (매우 투명한 내부)
-                finalAlpha = _BaseAlpha * interiorMask;
+                // 베이스 (거의 투명)
+                finalAlpha = _BaseAlpha;
 
-                // 테두리
-                finalColor = lerp(finalColor, _EdgeColor.rgb, edgeMask);
-                finalAlpha = max(finalAlpha, edgeMask * _EdgeColor.a);
+                // 프레넬 가장자리 (은은한 틴트)
+                float3 edgeColor = _EdgeTint.rgb;
+                finalColor = lerp(finalColor, edgeColor, fresnel * 0.5);
+                finalAlpha = lerp(finalAlpha, _EdgeTint.a, fresnel);
 
-                // 내부 반짝임
-                finalColor = lerp(finalColor, shimmerColor, shimmer * 0.7);
-                finalAlpha = max(finalAlpha, shimmer * 0.5);
+                // 무지개빛 간섭 (가장자리 쪽에서 더 강하게)
+                finalColor = lerp(finalColor, iridescence, iridescenceMask * 0.7);
+                finalAlpha = max(finalAlpha, iridescenceMask * 0.4);
 
-                // 하이라이트
-                finalColor += float3(1, 1, 1) * (highlight + highlight2);
-                finalAlpha = max(finalAlpha, (highlight + highlight2) * 0.9);
+                // 하이라이트 (부드러운 글로우)
+                float totalHighlight = highlight + highlight2;
+                finalColor = lerp(finalColor, float3(1, 1, 1), totalHighlight * 0.8);
+                finalAlpha = max(finalAlpha, totalHighlight * 0.6);
 
                 // SpriteRenderer 색상 적용
                 finalColor *= IN.color.rgb;

@@ -29,16 +29,16 @@ Material:
         m_Offset: {x: 0, y: 0}
     m_Ints: []
     m_Floats:
-    - _EdgeWidth: 0.015
-    - _ShimmerSpeed: 2.0
-    - _ShimmerScale: 4.0
-    - _ShimmerStrength: 0.4
-    - _ShimmerWidth: 0.15
-    - _HighlightSize: 0.12
-    - _HighlightIntensity: 0.8
-    - _BaseAlpha: 0.05
+    - _FilmThickness: 1.5
+    - _IridescenceSpeed: 0.3
+    - _IridescenceStrength: 0.6
+    - _FresnelPower: 2.5
+    - _HighlightSize: 0.06
+    - _HighlightSoftness: 1.5
+    - _HighlightIntensity: 0.5
+    - _BaseAlpha: 0.02
     m_Colors:
-    - _EdgeColor: {r: 1, g: 1, b: 1, a: 0.6}
-    - _HighlightPos: {r: -0.25, g: 0.25, b: 0, a: 0}
+    - _EdgeTint: {r: 0.9, g: 0.95, b: 1.0, a: 0.4}
+    - _HighlightPos: {r: -0.2, g: 0.2, b: 0, a: 0}
   m_BuildTextureStacks: []
   m_AllowLocking: 1

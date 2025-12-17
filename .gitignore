@@ -88,3 +88,6 @@ Thumbs.db
 *.ignore
 *.private
 *.private.meta
+
+# unityflow cache
+.unityflow/

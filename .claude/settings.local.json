@@ -25,7 +25,19 @@
       "Bash(git mv:*)",
       "Bash(for p in Xylophone Synth Chime Bass)",
       "Bash(do echo \"=== $p ===\")",
-      "Bash(ls:*)"
+      "Bash(ls:*)",
+      "Skill(unity-ui-workflow)",
+      "Skill(unity-yaml-workflow)",
+      "Bash(unityflow stats:*)",
+      "Bash(unityflow add-object:*)",
+      "Bash(unityflow add-component:*)",
+      "Bash(unityflow set:*)",
+      "Bash(unityflow query:*)",
+      "Bash(unityflow export:*)",
+      "Bash(unityflow import:*)",
+      "Bash(unityflow normalize:*)",
+      "Bash(pip show:*)",
+      "Bash(pip install:*)"
     ],
     "deny": [],
     "ask": []

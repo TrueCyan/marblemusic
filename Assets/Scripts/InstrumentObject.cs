@@ -233,5 +233,13 @@ public class InstrumentObject : MonoBehaviour
         return instrumentData != null && instrumentData.IsMelodyInstrument;
     }
 
+    /// <summary>
+    /// 현재 스케일을 originalScale로 업데이트 (크기 조절 후 시각적 피드백용)
+    /// </summary>
+    public void UpdateOriginalScale()
+    {
+        originalScale = transform.localScale;
+    }
+
     #endregion
 }

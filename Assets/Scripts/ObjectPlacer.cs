@@ -23,6 +23,11 @@ public class ObjectPlacer : MonoBehaviour
     [SerializeField] private bool snapToGrid = false;
     [SerializeField] private float rotationStep = 15f;
 
+    [Header("Instrument Scale Settings")]
+    [SerializeField] private float scaleStep = 0.1f;
+    [SerializeField] private float minScale = 0.3f;
+    [SerializeField] private float maxScale = 3.0f;
+
     [Header("Beat Snap Settings")]
     [SerializeField] private bool enableBeatSnap = true;
     [SerializeField] private float beatSnapDistance = 0.8f;
@@ -868,7 +873,12 @@ public class ObjectPlacer : MonoBehaviour
         }
 
         Quaternion rotation = previewObject != null ? previewObject.transform.rotation : Quaternion.identity;
+        Vector3 scale = previewObject != null ? previewObject.transform.localScale : Vector3.one;
         GameObject placed = Instantiate(prefab, position, rotation);
+        placed.transform.localScale = scale;
+
+        // 콜라이더 크기 즉시 동기화 (경로 예측용)
+        Physics2D.SyncTransforms();
 
         InstrumentObject instrument = placed.GetComponent<InstrumentObject>();
         if (instrument != null)
@@ -882,6 +892,9 @@ public class ObjectPlacer : MonoBehaviour
             {
                 instrument.SetNoteIndex(currentNoteIndex);
             }
+
+            // 스케일 변경 시 originalScale 업데이트
+            instrument.UpdateOriginalScale();
         }
 
         // 생성 액션 기록
@@ -1178,14 +1191,92 @@ public class ObjectPlacer : MonoBehaviour
 
         if (currentMode == PlacementMode.Edit && previewObject != null)
         {
-            previewObject.transform.Rotate(0, 0, -scroll * rotationStep);
+            // 악기인 경우 크기 조절, 그 외는 회전
+            if (previewObject.GetComponent<InstrumentObject>() != null)
+            {
+                ScaleInstrument(previewObject, scroll);
+            }
+            else
+            {
+                previewObject.transform.Rotate(0, 0, -scroll * rotationStep);
+            }
             return;
         }
 
         if (currentMode == PlacementMode.Edit && selectedObject != null)
         {
-            selectedObject.transform.Rotate(0, 0, -scroll * rotationStep);
+            // 악기인 경우 크기 조절, 그 외는 회전
+            if (selectedObject.GetComponent<InstrumentObject>() != null)
+            {
+                ScaleInstrument(selectedObject, scroll);
+                RefreshTrajectoryPrediction();
+            }
+            else
+            {
+                selectedObject.transform.Rotate(0, 0, -scroll * rotationStep);
+            }
             return;
+        }
+    }
+
+    /// <summary>
+    /// 악기 크기 조절
+    /// </summary>
+    private void ScaleInstrument(GameObject obj, float scroll)
+    {
+        Vector3 currentScale = obj.transform.localScale;
+        float newScaleValue = currentScale.x + scroll * scaleStep;
+        newScaleValue = Mathf.Clamp(newScaleValue, minScale, maxScale);
+
+        obj.transform.localScale = Vector3.one * newScaleValue;
+
+        // 콜라이더 크기 즉시 동기화 (경로 예측용)
+        Physics2D.SyncTransforms();
+
+        // 스냅용 반지름 업데이트 (변경된 스케일 반영)
+        UpdateInstrumentRadiusFromObject(obj);
+
+        // InstrumentObject의 originalScale 업데이트 (시각적 피드백용)
+        InstrumentObject instrument = obj.GetComponent<InstrumentObject>();
+        if (instrument != null)
+        {
+            instrument.UpdateOriginalScale();
+        }
+    }
+
+    /// <summary>
+    /// 오브젝트의 현재 스케일을 반영하여 콜라이더 반지름 업데이트
+    /// </summary>
+    private void UpdateInstrumentRadiusFromObject(GameObject obj)
+    {
+        if (obj == null) return;
+
+        float scale = obj.transform.localScale.x;
+
+        // CircleCollider2D 확인
+        CircleCollider2D circleCollider = obj.GetComponent<CircleCollider2D>();
+        if (circleCollider != null)
+        {
+            currentInstrumentRadius = circleCollider.radius * scale;
+        }
+        else
+        {
+            // BoxCollider2D 확인
+            BoxCollider2D boxCollider = obj.GetComponent<BoxCollider2D>();
+            if (boxCollider != null)
+            {
+                currentInstrumentRadius = Mathf.Max(boxCollider.size.x, boxCollider.size.y) * 0.5f * scale;
+            }
+            else
+            {
+                currentInstrumentRadius = defaultInstrumentRadius * scale;
+            }
+        }
+
+        // 스냅 인디케이터 크기도 업데이트
+        if (snapIndicator != null)
+        {
+            snapIndicator.transform.localScale = Vector3.one * (currentInstrumentRadius * 2f + 0.1f);
         }
     }
 
@@ -1211,6 +1302,20 @@ public class ObjectPlacer : MonoBehaviour
             }
         }
 
+        // R 키로 악기 스케일 리셋
+        if (Input.GetKeyDown(KeyCode.R))
+        {
+            if (previewObject != null && previewObject.GetComponent<InstrumentObject>() != null)
+            {
+                ResetInstrumentScale(previewObject);
+            }
+            else if (selectedObject != null && selectedObject.GetComponent<InstrumentObject>() != null)
+            {
+                ResetInstrumentScale(selectedObject);
+                RefreshTrajectoryPrediction();
+            }
+        }
+
         // Delete 키로 선택된 오브젝트 삭제
         if (selectedObject != null)
         {
@@ -1232,6 +1337,26 @@ public class ObjectPlacer : MonoBehaviour
                 selectedObject.transform.Rotate(0, 0, 90 * Time.deltaTime);
             if (Input.GetKey(KeyCode.RightArrow))
                 selectedObject.transform.Rotate(0, 0, -90 * Time.deltaTime);
+        }
+    }
+
+    /// <summary>
+    /// 악기 스케일을 기본값(1)으로 리셋
+    /// </summary>
+    private void ResetInstrumentScale(GameObject obj)
+    {
+        obj.transform.localScale = Vector3.one;
+
+        // 콜라이더 크기 즉시 동기화 (경로 예측용)
+        Physics2D.SyncTransforms();
+
+        // 스냅용 반지름 업데이트 (리셋된 스케일 반영)
+        UpdateInstrumentRadiusFromObject(obj);
+
+        InstrumentObject instrument = obj.GetComponent<InstrumentObject>();
+        if (instrument != null)
+        {
+            instrument.UpdateOriginalScale();
         }
     }
 

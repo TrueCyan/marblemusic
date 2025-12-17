@@ -1550,6 +1550,7 @@ MonoBehaviour:
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: fe87c0e1cc204ed48ad3b37840f39efc, type: 3}
   m_EditorClassIdentifier:
+  m_Material: {fileID: 2100000, guid: afec5335a7187774195e7a645b632b8a, type: 2}
   m_Sprite: {fileID: 21300000, guid: 368f3bc2469096243af42430486e935c, type: 3}
 --- !u!114 &59477218089121561
 MonoBehaviour:
@@ -1562,6 +1563,7 @@ MonoBehaviour:
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: fe87c0e1cc204ed48ad3b37840f39efc, type: 3}
   m_EditorClassIdentifier:
+  m_Material: {fileID: 2100000, guid: afec5335a7187774195e7a645b632b8a, type: 2}
   m_Sprite: {fileID: 21300000, guid: 88cf5e023e735e3439f12afc3f7ac835, type: 3}
 --- !u!114 &59477249245077902
 MonoBehaviour:
@@ -1574,6 +1576,7 @@ MonoBehaviour:
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: fe87c0e1cc204ed48ad3b37840f39efc, type: 3}
   m_EditorClassIdentifier:
+  m_Material: {fileID: 2100000, guid: afec5335a7187774195e7a645b632b8a, type: 2}
   m_Sprite: {fileID: 21300000, guid: 9369a50930efbb3438405ce0d5e89458, type: 3}
 --- !u!114 &59477283922890236
 MonoBehaviour:
@@ -1586,6 +1589,7 @@ MonoBehaviour:
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: fe87c0e1cc204ed48ad3b37840f39efc, type: 3}
   m_EditorClassIdentifier:
+  m_Material: {fileID: 2100000, guid: afec5335a7187774195e7a645b632b8a, type: 2}
   m_Sprite: {fileID: 21300000, guid: d992152f02af83a429cb672547c34e5f, type: 3}
 --- !u!114 &59477318844889336
 MonoBehaviour:
@@ -1598,6 +1602,7 @@ MonoBehaviour:
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: fe87c0e1cc204ed48ad3b37840f39efc, type: 3}
   m_EditorClassIdentifier:
+  m_Material: {fileID: 2100000, guid: afec5335a7187774195e7a645b632b8a, type: 2}
   m_Sprite: {fileID: 21300000, guid: 3a656638cf3365d4fa35aa509c053c8d, type: 3}
 --- !u!114 &59477352112568391
 MonoBehaviour:
@@ -1610,6 +1615,7 @@ MonoBehaviour:
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: fe87c0e1cc204ed48ad3b37840f39efc, type: 3}
   m_EditorClassIdentifier:
+  m_Material: {fileID: 2100000, guid: afec5335a7187774195e7a645b632b8a, type: 2}
   m_Sprite: {fileID: 21300000, guid: 3a656638cf3365d4fa35aa509c053c8d, type: 3}
 --- !u!114 &59477385397332619
 MonoBehaviour:
@@ -1622,4 +1628,5 @@ MonoBehaviour:
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: fe87c0e1cc204ed48ad3b37840f39efc, type: 3}
   m_EditorClassIdentifier:
+  m_Material: {fileID: 2100000, guid: afec5335a7187774195e7a645b632b8a, type: 2}
   m_Sprite: {fileID: 21300000, guid: 3a656638cf3365d4fa35aa509c053c8d, type: 3}

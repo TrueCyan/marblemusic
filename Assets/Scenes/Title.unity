@@ -2620,6 +2620,8 @@ MonoBehaviour:
   m_EditorClassIdentifier:
   m_text: X
   m_fontSize: 20
+  m_HorizontalAlignment: 2
+  m_VerticalAlignment: 512
 --- !u!1 &59543019489309629
 GameObject:
   m_ObjectHideFlags: 0
@@ -3180,6 +3182,8 @@ MonoBehaviour:
   m_text: New name...
   m_fontSize: 16
   m_fontStyle: 2
+  m_HorizontalAlignment: 1
+  m_VerticalAlignment: 512
 --- !u!1 &59543735164703173
 GameObject:
   m_ObjectHideFlags: 0
@@ -3229,6 +3233,8 @@ MonoBehaviour:
   m_EditorClassIdentifier:
   m_text:
   m_fontSize: 16
+  m_HorizontalAlignment: 1
+  m_VerticalAlignment: 512
 --- !u!1 &59543916491612640
 GameObject:
   m_ObjectHideFlags: 0
@@ -3339,6 +3345,8 @@ MonoBehaviour:
   m_EditorClassIdentifier:
   m_text: Rename
   m_fontSize: 16
+  m_HorizontalAlignment: 2
+  m_VerticalAlignment: 512
 --- !u!1 &59543935072302750
 GameObject:
   m_ObjectHideFlags: 0
@@ -3449,6 +3457,8 @@ MonoBehaviour:
   m_EditorClassIdentifier:
   m_text: Cancel
   m_fontSize: 16
+  m_HorizontalAlignment: 2
+  m_VerticalAlignment: 512
 --- !u!1 &59545024672923941
 GameObject:
   m_ObjectHideFlags: 0
@@ -3833,7 +3843,7 @@ MonoBehaviour:
   m_text: Delete this save?
   m_fontSize: 24
   m_fontColor: {r: 1, g: 1, b: 1, a: 1}
-  m_HorizontalAlignment: 1
+  m_HorizontalAlignment: 2
   m_VerticalAlignment: 512
 --- !u!222 &59545445922005730
 CanvasRenderer:
@@ -3890,8 +3900,8 @@ MonoBehaviour:
   m_text: Yes
   m_fontSize: 20
   m_fontColor: {r: 1, g: 1, b: 1, a: 1}
-  m_HorizontalAlignment: 1
-  m_VerticalAlignment: 256
+  m_HorizontalAlignment: 2
+  m_VerticalAlignment: 512
 --- !u!222 &59545458893146953
 CanvasRenderer:
   m_ObjectHideFlags: 0
@@ -3947,8 +3957,8 @@ MonoBehaviour:
   m_text: No
   m_fontSize: 20
   m_fontColor: {r: 1, g: 1, b: 1, a: 1}
-  m_HorizontalAlignment: 1
-  m_VerticalAlignment: 256
+  m_HorizontalAlignment: 2
+  m_VerticalAlignment: 512
 --- !u!222 &59545569166123271
 CanvasRenderer:
   m_ObjectHideFlags: 0
@@ -3993,8 +4003,8 @@ MonoBehaviour:
   m_text: Toast message
   m_fontSize: 18
   m_fontColor: {r: 1, g: 1, b: 1, a: 1}
-  m_HorizontalAlignment: 1
-  m_VerticalAlignment: 256
+  m_HorizontalAlignment: 2
+  m_VerticalAlignment: 512
 --- !u!1 &59970645233018061
 GameObject:
   m_ObjectHideFlags: 0

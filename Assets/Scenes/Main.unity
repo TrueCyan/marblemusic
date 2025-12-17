@@ -8654,6 +8654,8 @@ MonoBehaviour:
   m_EditorClassIdentifier:
   m_text: X
   m_fontSize: 18
+  m_HorizontalAlignment: 2
+  m_VerticalAlignment: 512
 --- !u!1 &59540829733687508
 GameObject:
   m_ObjectHideFlags: 0
@@ -8997,6 +8999,8 @@ MonoBehaviour:
   m_text: Save name...
   m_fontSize: 16
   m_fontStyle: 2
+  m_HorizontalAlignment: 1
+  m_VerticalAlignment: 512
 --- !u!1 &59541360095560404
 GameObject:
   m_ObjectHideFlags: 0
@@ -9047,6 +9051,8 @@ MonoBehaviour:
   m_EditorClassIdentifier:
   m_text:
   m_fontSize: 16
+  m_HorizontalAlignment: 1
+  m_VerticalAlignment: 512
 --- !u!1 &59541577858764574
 GameObject:
   m_ObjectHideFlags: 0
@@ -9369,6 +9375,8 @@ MonoBehaviour:
   m_EditorClassIdentifier:
   m_text:
   m_fontSize: 18
+  m_HorizontalAlignment: 2
+  m_VerticalAlignment: 512
 --- !u!222 &60001021302014606
 CanvasRenderer:
   m_ObjectHideFlags: 0

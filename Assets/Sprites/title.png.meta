@@ -23,6 +23,12 @@ TextureImporter:
   - first:
       213: -4093714307795105667
     second: title_6
+  - first:
+      213: -2490043832354904171
+    second: title_7
+  - first:
+      213: 2170485668361454577
+    second: title_8
   externalObjects: {}
   serializedVersion: 13
   mipmaps:
@@ -149,8 +155,8 @@ TextureImporter:
         serializedVersion: 2
         x: 11
         y: 0
-        width: 1494
-        height: 1024
+        width: 769
+        height: 1020
       alignment: 0
       pivot: {x: 0, y: 0}
       border: {x: 0, y: 0, z: 0, w: 0}
@@ -169,10 +175,10 @@ TextureImporter:
       name: title_1
       rect:
         serializedVersion: 2
-        x: 239
-        y: 415
-        width: 141
-        height: 68
+        x: 494
+        y: 830
+        width: 48
+        height: 190
       alignment: 0
       pivot: {x: 0, y: 0}
       border: {x: 0, y: 0, z: 0, w: 0}
@@ -191,10 +197,10 @@ TextureImporter:
       name: title_2
       rect:
         serializedVersion: 2
-        x: 280
-        y: 289
-        width: 915
-        height: 286
+        x: 689
+        y: 529
+        width: 816
+        height: 495
       alignment: 0
       pivot: {x: 0, y: 0}
       border: {x: 0, y: 0, z: 0, w: 0}
@@ -213,10 +219,10 @@ TextureImporter:
       name: title_3
       rect:
         serializedVersion: 2
-        x: 463
-        y: 294
-        width: 13
-        height: 10
+        x: 185
+        y: 457
+        width: 200
+        height: 104
       alignment: 0
       pivot: {x: 0, y: 0}
       border: {x: 0, y: 0, z: 0, w: 0}
@@ -235,10 +241,10 @@ TextureImporter:
       name: title_4
       rect:
         serializedVersion: 2
-        x: 521
-        y: 261
-        width: 565
-        height: 110
+        x: 259
+        y: 0
+        width: 1254
+        height: 610
       alignment: 0
       pivot: {x: 0, y: 0}
       border: {x: 0, y: 0, z: 0, w: 0}
@@ -257,10 +263,10 @@ TextureImporter:
       name: title_5
       rect:
         serializedVersion: 2
-        x: 939
-        y: 399
-        width: 271
-        height: 184
+        x: 743
+        y: 395
+        width: 599
+        height: 164
       alignment: 0
       pivot: {x: 0, y: 0}
       border: {x: 0, y: 0, z: 0, w: 0}
@@ -279,10 +285,10 @@ TextureImporter:
       name: title_6
       rect:
         serializedVersion: 2
-        x: 1054
-        y: 384
-        width: 451
-        height: 148
+        x: 1227
+        y: 525
+        width: 39
+        height: 44
       alignment: 0
       pivot: {x: 0, y: 0}
       border: {x: 0, y: 0, z: 0, w: 0}
@@ -293,6 +299,50 @@ TextureImporter:
       bones: []
       spriteID: d7840f7c6843037c0800000000000000
       internalID: -4093714307795105667
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: title_7
+      rect:
+        serializedVersion: 2
+        x: 480
+        y: 221
+        width: 656
+        height: 168
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: 5976559c356917dd0800000000000000
+      internalID: -2490043832354904171
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: title_8
+      rect:
+        serializedVersion: 2
+        x: 874
+        y: 255
+        width: 47
+        height: 46
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: 1f3c2c4373d1f1e10800000000000000
+      internalID: 2170485668361454577
       vertices: []
       indices: 
       edges: []
@@ -318,6 +368,8 @@ TextureImporter:
       title_4: 6959973565247811803
       title_5: 8208922059937784112
       title_6: -4093714307795105667
+      title_7: -2490043832354904171
+      title_8: 2170485668361454577
   mipmapLimitGroupName: 
   pSDRemoveMatte: 0
   userData: 

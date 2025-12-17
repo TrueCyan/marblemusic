@@ -1,10 +1,11 @@
 using UnityEngine;
 using UnityEngine.UI;
+using UnityEngine.SceneManagement;
 using TMPro;
 using System.Collections.Generic;
 
 /// <summary>
-/// 메인 UI 매니저 - 모드 전환, 오브젝트 선택 독, BPM 설정
+/// 메인 UI 매니저 - 모드 전환, 오브젝트 선택 독, BPM 설정, 메뉴 팝업
 /// AudioManager에 등록된 악기를 자동으로 로드하여 표시
 /// </summary>
 public class MainUIManager : MonoBehaviour
@@ -15,7 +16,10 @@ public class MainUIManager : MonoBehaviour
     [SerializeField] private Button playModeBtn;
     [SerializeField] private Button editModeBtn;
 
-    [Header("BPM Panel (Top-Right)")]
+    [Header("Menu Button (Top-Right)")]
+    [SerializeField] private Button menuButton;
+
+    [Header("BPM Panel (Below Menu)")]
     [SerializeField] private Button bpmMinusBtn;
     [SerializeField] private TMP_InputField bpmInputField;
     [SerializeField] private Button bpmPlusBtn;
@@ -25,6 +29,23 @@ public class MainUIManager : MonoBehaviour
     [SerializeField] private TextMeshProUGUI beatDivisionText;
     [SerializeField] private Button beatDivPlusBtn;   // 분할 증가
     [SerializeField] private Button beatSnapToggleBtn; // 박자 스냅 토글
+
+    [Header("Menu Popup")]
+    [SerializeField] private GameObject menuPopup;
+    [SerializeField] private Button saveButton;
+    [SerializeField] private Button exportButton;
+    [SerializeField] private Button returnToMainButton;
+    [SerializeField] private Button closeMenuButton;
+
+    [Header("Name Input Popup")]
+    [SerializeField] private GameObject nameInputPopup;
+    [SerializeField] private TMP_InputField nameInputField;
+    [SerializeField] private Button nameConfirmButton;
+    [SerializeField] private Button nameCancelButton;
+
+    [Header("Toast")]
+    [SerializeField] private GameObject toastPanel;
+    [SerializeField] private TextMeshProUGUI toastText;
 
     [Header("Object Dock (Bottom)")]
     [SerializeField] private GameObject dockPanel;
@@ -87,17 +108,53 @@ public class MainUIManager : MonoBehaviour
 
     private void Start()
     {
+        EnsureSaveManager();
+
         SetupModeButtons();
         SetupBPMControls();
         SetupBeatDivisionControls();
         SetupDockTabs();
         SetupInlineNoteControl();
+        SetupMenuPopup();
 
         // AudioManager가 초기화된 후 악기 로드
         Invoke(nameof(LoadInstrumentsFromAudioManager), 0.1f);
 
         SetMode(ObjectPlacer.PlacementMode.Play);
         ShowDock(false);
+
+        // 팝업 초기 숨김
+        if (menuPopup != null) menuPopup.SetActive(false);
+        if (nameInputPopup != null) nameInputPopup.SetActive(false);
+        if (toastPanel != null) toastPanel.SetActive(false);
+
+        // 대기 중인 로드 처리
+        Invoke(nameof(CheckPendingLoad), 0.2f);
+    }
+
+    private void EnsureSaveManager()
+    {
+        if (SaveManager.Instance == null)
+        {
+            GameObject saveManagerObj = new GameObject("SaveManager");
+            saveManagerObj.AddComponent<SaveManager>();
+        }
+    }
+
+    private void CheckPendingLoad()
+    {
+        string pendingLoad = PlayerPrefs.GetString("PendingLoad", "");
+        if (!string.IsNullOrEmpty(pendingLoad))
+        {
+            PlayerPrefs.DeleteKey("PendingLoad");
+            PlayerPrefs.Save();
+
+            if (SaveManager.Instance != null)
+            {
+                SaveManager.Instance.Load(pendingLoad);
+                ShowToast("Loaded: " + pendingLoad);
+            }
+        }
     }
 
     private void SetupInlineNoteControl()
@@ -738,6 +795,177 @@ public class MainUIManager : MonoBehaviour
     {
         LoadInstrumentsFromAudioManager();
     }
+
+    #endregion
+
+    #region Menu Popup
+
+    private void SetupMenuPopup()
+    {
+        if (menuButton != null)
+            menuButton.onClick.AddListener(OpenMenuPopup);
+
+        if (saveButton != null)
+            saveButton.onClick.AddListener(OnSaveClicked);
+
+        if (exportButton != null)
+            exportButton.onClick.AddListener(OnExportClicked);
+
+        if (returnToMainButton != null)
+            returnToMainButton.onClick.AddListener(OnReturnToMainClicked);
+
+        if (closeMenuButton != null)
+            closeMenuButton.onClick.AddListener(CloseMenuPopup);
+
+        if (nameConfirmButton != null)
+            nameConfirmButton.onClick.AddListener(OnNameConfirmed);
+
+        if (nameCancelButton != null)
+            nameCancelButton.onClick.AddListener(CloseNameInputPopup);
+    }
+
+    public void OpenMenuPopup()
+    {
+        if (menuPopup != null)
+        {
+            menuPopup.SetActive(true);
+        }
+    }
+
+    public void CloseMenuPopup()
+    {
+        if (menuPopup != null)
+        {
+            menuPopup.SetActive(false);
+        }
+    }
+
+    private void OnSaveClicked()
+    {
+        CloseMenuPopup();
+
+        if (SaveManager.Instance == null) return;
+
+        // 이름이 없으면 이름 입력 팝업 표시
+        if (!SaveManager.Instance.HasSaveName)
+        {
+            ShowNameInputPopup();
+        }
+        else
+        {
+            SaveManager.Instance.SaveCurrent();
+            ShowToast("Saved successfully!");
+        }
+    }
+
+    private void OnExportClicked()
+    {
+        CloseMenuPopup();
+
+        if (SaveManager.Instance == null) return;
+
+        string json = SaveManager.Instance.Export();
+        CopyToClipboard(json);
+        ShowToast("Exported to clipboard!");
+    }
+
+    private void OnReturnToMainClicked()
+    {
+        CloseMenuPopup();
+
+        // GameManager와 AudioManager의 DontDestroyOnLoad 해제
+        if (GameManager.Instance != null)
+        {
+            Destroy(GameManager.Instance.gameObject);
+        }
+
+        SceneManager.LoadScene("Title");
+    }
+
+    #endregion
+
+    #region Name Input Popup
+
+    private void ShowNameInputPopup()
+    {
+        if (nameInputPopup != null)
+        {
+            nameInputPopup.SetActive(true);
+            if (nameInputField != null)
+            {
+                nameInputField.text = "";
+                nameInputField.Select();
+                nameInputField.ActivateInputField();
+            }
+        }
+    }
+
+    private void CloseNameInputPopup()
+    {
+        if (nameInputPopup != null)
+        {
+            nameInputPopup.SetActive(false);
+        }
+    }
+
+    private void OnNameConfirmed()
+    {
+        if (SaveManager.Instance == null) return;
+
+        string name = nameInputField != null ? nameInputField.text.Trim() : "";
+
+        if (string.IsNullOrEmpty(name))
+        {
+            // 이름이 비어있으면 자동 이름 사용
+            name = SaveManager.Instance.GenerateAutoSaveName();
+        }
+
+        SaveManager.Instance.Save(name);
+        CloseNameInputPopup();
+        ShowToast("Saved as: " + name);
+    }
+
+    #endregion
+
+    #region Toast
+
+    public void ShowToast(string message, float duration = 2f)
+    {
+        if (toastPanel != null && toastText != null)
+        {
+            toastText.text = message;
+            toastPanel.SetActive(true);
+            CancelInvoke(nameof(HideToast));
+            Invoke(nameof(HideToast), duration);
+        }
+    }
+
+    private void HideToast()
+    {
+        if (toastPanel != null)
+        {
+            toastPanel.SetActive(false);
+        }
+    }
+
+    #endregion
+
+    #region Clipboard
+
+    private void CopyToClipboard(string text)
+    {
+#if UNITY_WEBGL && !UNITY_EDITOR
+        // WebGL에서는 JavaScript interop 사용
+        CopyToClipboardJS(text);
+#else
+        GUIUtility.systemCopyBuffer = text;
+#endif
+    }
+
+#if UNITY_WEBGL && !UNITY_EDITOR
+    [System.Runtime.InteropServices.DllImport("__Internal")]
+    private static extern void CopyToClipboardJS(string text);
+#endif
 
     #endregion
 }

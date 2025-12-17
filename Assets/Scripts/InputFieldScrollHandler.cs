@@ -20,19 +20,24 @@ public class InputFieldScrollHandler : MonoBehaviour, IScrollHandler
     public void OnScroll(PointerEventData eventData)
     {
         if (inputField == null || inputField.textComponent == null) return;
+        if (inputField.textViewport == null) return;
 
         // 스크롤 델타 (위로 스크롤하면 양수, 아래로 스크롤하면 음수)
         float scrollDelta = eventData.scrollDelta.y;
-
-        // 현재 스크롤 위치 조정
-        float newPos = inputField.textComponent.rectTransform.anchoredPosition.y - scrollDelta * scrollSpeed;
 
         // 텍스트 높이와 뷰포트 높이 계산
         float textHeight = inputField.textComponent.preferredHeight;
         float viewportHeight = inputField.textViewport.rect.height;
 
-        // 스크롤 범위 제한
-        float maxScroll = Mathf.Max(0, textHeight - viewportHeight);
+        // 스크롤이 필요 없으면 리턴
+        if (textHeight <= viewportHeight) return;
+
+        // 현재 스크롤 위치 조정 (휠 위로 = 텍스트 아래로 = position.y 감소)
+        float currentPos = inputField.textComponent.rectTransform.anchoredPosition.y;
+        float newPos = currentPos + scrollDelta * scrollSpeed;
+
+        // 스크롤 범위: 0 (맨 위) ~ maxScroll (맨 아래)
+        float maxScroll = textHeight - viewportHeight;
         newPos = Mathf.Clamp(newPos, 0, maxScroll);
 
         // 스크롤 적용

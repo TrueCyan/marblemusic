@@ -1,0 +1,184 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Marble Music - CTP431 Final Project</title>
+    <link rel="shortcut icon" href="game/TemplateData/favicon.ico">
+    <link rel="stylesheet" href="style.css">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@400;500;600;700&family=Inter:wght@300;400;500;600&display=swap" rel="stylesheet">
+</head>
+<body>
+    <!-- Decorative Stars -->
+    <div class="stars-bg">
+        <div class="star star-1">✦</div>
+        <div class="star star-2">✦</div>
+        <div class="star star-3">✦</div>
+        <div class="star star-4">✦</div>
+        <div class="star star-5">✦</div>
+        <div class="star star-6">✦</div>
+    </div>
+
+    <div class="container">
+        <!-- Hero Section -->
+        <header class="hero">
+            <div class="hero-content">
+                <img src="title.png" alt="Marble Music" class="title-image">
+                <p class="subtitle">A Music Sandbox with Marbles and Instruments</p>
+                <a href="game/index.html" class="play-button">
+                    <span class="play-icon">▶</span>
+                    Play Now
+                </a>
+            </div>
+            <div class="marble-animation">
+                <div class="marble"></div>
+                <div class="marble delay-1"></div>
+                <div class="marble delay-2"></div>
+            </div>
+        </header>
+
+        <!-- About Section -->
+        <section class="section about">
+            <h2>About</h2>
+            <p>
+                <strong>Marble Music</strong> is a sandbox music game where marbles fall and
+                produce sounds when they collide with instrument objects. Place instruments freely,
+                design marble trajectories, and create your own unique musical compositions.
+            </p>
+        </section>
+
+        <!-- Motivation Section -->
+        <section class="section motivation">
+            <h2>Why I Made This</h2>
+            <p>
+                Through my experience in game development clubs and career exploration,
+                I have built a strong foundation in game development. While taking CTP431,
+                I became interested in the intersection of music and technology,
+                and wanted to create a project that combines these two fields.
+            </p>
+            <div class="inspiration">
+                <h3>Inspiration</h3>
+                <div class="video-links">
+                    <a href="https://www.youtube.com/watch?v=IvUU8joBb1Q" target="_blank" class="video-card">
+                        <div class="video-icon">🎵</div>
+                        <span>Marble Machine<br><small>by Wintergatan</small></span>
+                    </a>
+                    <a href="https://www.youtube.com/watch?v=RIz3klPET3o" target="_blank" class="video-card">
+                        <div class="video-icon">🎢</div>
+                        <span>Line Rider<br><small>Beethoven's 5th</small></span>
+                    </a>
+                </div>
+                <p class="inspiration-desc">
+                    I was inspired by the Marble Machine, where physical marbles play musical instruments,
+                    and Line Rider, where a sled rides along lines synchronized with music.
+                    These projects sparked the idea for Marble Music.
+                </p>
+            </div>
+        </section>
+
+        <!-- How It Works Section -->
+        <section class="section how-it-works">
+            <h2>How It Works</h2>
+
+            <div class="feature-grid">
+                <div class="feature-card">
+                    <div class="feature-icon">🔮</div>
+                    <h3>Physics Simulation</h3>
+                    <p>
+                        Marble trajectories are pre-calculated for accurate collision detection.
+                        Gravity, reflection (95% bounciness), and friction are applied
+                        to create natural and realistic movement.
+                    </p>
+                </div>
+
+                <div class="feature-card">
+                    <div class="feature-icon">🎹</div>
+                    <h3>Instrument System</h3>
+                    <p>
+                        Beat instruments (drums, cymbals, etc.) and melody instruments
+                        (piano, xylophone, etc.) are distinguished. Melody instruments support
+                        12 pitches (C to B), and volume is adjusted based on collision velocity.
+                    </p>
+                </div>
+
+                <div class="feature-card">
+                    <div class="feature-icon">✨</div>
+                    <h3>Visual Feedback</h3>
+                    <p>
+                        When marbles collide with instruments, visual feedback is provided
+                        through scale changes and color flash effects. Bubble shaders create
+                        transparent and beautiful instrument appearances.
+                    </p>
+                </div>
+
+                <div class="feature-card">
+                    <div class="feature-icon">🌀</div>
+                    <h3>Portal System</h3>
+                    <p>
+                        Place Entry and Exit portals to teleport marbles instantly.
+                        This is useful for creating complex trajectories and repeating patterns.
+                    </p>
+                </div>
+
+                <div class="feature-card">
+                    <div class="feature-icon">📍</div>
+                    <h3>Trajectory Prediction</h3>
+                    <p>
+                        Preview the expected trajectory before launching a marble.
+                        The physics simulation runs ahead of time and displays
+                        the path as a dotted line.
+                    </p>
+                </div>
+
+                <div class="feature-card">
+                    <div class="feature-icon">⏱️</div>
+                    <h3>Periodic Spawning</h3>
+                    <p>
+                        Place spawners that automatically launch marbles at regular intervals.
+                        Drop marbles in sync with the beat to create rhythmic music.
+                    </p>
+                </div>
+            </div>
+        </section>
+
+        <!-- Credits Section -->
+        <section class="section credits">
+            <h2>Credits</h2>
+            <div class="credit-list">
+                <div class="credit-item">
+                    <span class="credit-label">Development</span>
+                    <span class="credit-value">Sejin An</span>
+                </div>
+                <div class="credit-item">
+                    <span class="credit-label">Engine</span>
+                    <span class="credit-value">Unity 6</span>
+                </div>
+                <div class="credit-item">
+                    <span class="credit-label">Sprites</span>
+                    <span class="credit-value">Generated with ChatGPT (DALL-E)</span>
+                </div>
+                <div class="credit-item">
+                    <span class="credit-label">Drum Samples</span>
+                    <span class="credit-value">
+                        <a href="https://99sounds.org/drum-samples/" target="_blank">99sounds.org</a>
+                    </span>
+                </div>
+                <div class="credit-item">
+                    <span class="credit-label">Piano Samples</span>
+                    <span class="credit-value">
+                        <a href="https://freesound.org/people/sgossner/packs/21055/" target="_blank">freesound.org - sgossner</a>
+                    </span>
+                </div>
+            </div>
+        </section>
+
+        <!-- Footer -->
+        <footer class="footer">
+            <p>CTP431 Music and Audio Computing - Final Project</p>
+            <p class="copyright">© 2024 Sejin An. All rights reserved.</p>
+        </footer>
+    </div>
+</body>
+</html>

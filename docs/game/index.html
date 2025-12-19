@@ -1,0 +1,161 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Marble Music</title>
+    <link rel="shortcut icon" href="TemplateData/favicon.ico">
+    <link rel="stylesheet" href="TemplateData/style.css">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@500;600&family=Inter:wght@300;400;500;600&display=swap" rel="stylesheet">
+</head>
+<body>
+    <!-- Controls Guide Panel - Expanded by default -->
+    <div id="controls-panel" class="controls-panel expanded">
+        <button id="controls-toggle" class="controls-toggle" title="Toggle Controls Guide">
+            <span class="toggle-icon">×</span>
+        </button>
+        <div id="controls-content" class="controls-content">
+            <h3>Controls</h3>
+
+            <div class="control-section">
+                <h4>General</h4>
+                <div class="control-item"><span class="key">Q</span> Play Mode</div>
+                <div class="control-item"><span class="key">E</span> Edit Mode</div>
+                <div class="control-item"><span class="key">Scroll</span> Zoom (or resize)</div>
+                <div class="control-item"><span class="key">Shift + Scroll</span> Zoom (always)</div>
+                <div class="control-item"><span class="key">Middle Mouse</span> Pan Camera</div>
+                <div class="control-item"><span class="key">Alt + Left Click</span> Pan Camera</div>
+            </div>
+
+            <div class="control-section">
+                <h4>Edit Mode</h4>
+                <div class="control-item"><span class="key">Left Click</span> Place / Select</div>
+                <div class="control-item"><span class="key">Right Click</span> Delete</div>
+                <div class="control-item"><span class="key">Shift + Drag</span> Move Object</div>
+                <div class="control-item"><span class="key">Scroll</span> Resize Instrument</div>
+                <div class="control-item"><span class="key">R</span> Reset Size</div>
+                <div class="control-item"><span class="key">Delete</span> Delete Selected</div>
+                <div class="control-item"><span class="key">Arrows</span> Rotate</div>
+                <div class="control-item"><span class="key">ESC</span> Cancel / Deselect</div>
+                <div class="control-item"><span class="key">Ctrl + Z</span> Undo</div>
+                <div class="control-item"><span class="key">Ctrl + Shift + Z</span> Redo</div>
+            </div>
+
+            <div class="control-section">
+                <h4>Play Mode</h4>
+                <div class="control-item"><span class="key">Click Spawner</span> Launch Marble</div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Back Button -->
+    <a href="../index.html" class="back-button" title="Back to Home">
+        <span class="back-icon">&#8592;</span>
+        <span class="back-text">Back</span>
+    </a>
+
+    <!-- Unity Container -->
+    <div id="unity-container" class="unity-desktop">
+        <canvas id="unity-canvas" width=960 height=600 tabindex="-1"></canvas>
+        <div id="unity-loading-bar">
+            <div id="unity-logo"></div>
+            <div id="unity-progress-bar-empty">
+                <div id="unity-progress-bar-full"></div>
+            </div>
+        </div>
+        <div id="unity-warning"></div>
+        <div id="unity-footer">
+            <div id="unity-logo-title-footer"></div>
+            <div id="unity-fullscreen-button"></div>
+            <div id="unity-build-title">Marble Music</div>
+        </div>
+    </div>
+
+    <script>
+        var canvas = document.querySelector("#unity-canvas");
+
+        function unityShowBanner(msg, type) {
+            var warningBanner = document.querySelector("#unity-warning");
+            function updateBannerVisibility() {
+                warningBanner.style.display = warningBanner.children.length ? 'block' : 'none';
+            }
+            var div = document.createElement('div');
+            div.innerHTML = msg;
+            warningBanner.appendChild(div);
+            if (type == 'error') div.style = 'background: red; padding: 10px;';
+            else {
+                if (type == 'warning') div.style = 'background: yellow; padding: 10px;';
+                setTimeout(function() {
+                    warningBanner.removeChild(div);
+                    updateBannerVisibility();
+                }, 5000);
+            }
+            updateBannerVisibility();
+        }
+
+        var buildUrl = "Build";
+        var loaderUrl = buildUrl + "/Docs.loader.js";
+        var config = {
+            arguments: [],
+            dataUrl: buildUrl + "/Docs.data.br",
+            frameworkUrl: buildUrl + "/Docs.framework.js.br",
+            codeUrl: buildUrl + "/Docs.wasm.br",
+            streamingAssetsUrl: "StreamingAssets",
+            companyName: "SejinAn",
+            productName: "MarbleMusic",
+            productVersion: "0.1",
+            showBanner: unityShowBanner,
+        };
+
+        if (/iPhone|iPad|iPod|Android/i.test(navigator.userAgent)) {
+            var meta = document.createElement('meta');
+            meta.name = 'viewport';
+            meta.content = 'width=device-width, height=device-height, initial-scale=1.0, user-scalable=no, shrink-to-fit=yes';
+            document.getElementsByTagName('head')[0].appendChild(meta);
+            document.querySelector("#unity-container").className = "unity-mobile";
+            canvas.className = "unity-mobile";
+        } else {
+            canvas.style.width = "960px";
+            canvas.style.height = "600px";
+        }
+
+        document.querySelector("#unity-loading-bar").style.display = "block";
+
+        var script = document.createElement("script");
+        script.src = loaderUrl;
+        script.onload = () => {
+            createUnityInstance(canvas, config, (progress) => {
+                document.querySelector("#unity-progress-bar-full").style.width = 100 * progress + "%";
+            }).then((unityInstance) => {
+                document.querySelector("#unity-loading-bar").style.display = "none";
+                document.querySelector("#unity-fullscreen-button").onclick = () => {
+                    unityInstance.SetFullscreen(1);
+                };
+            }).catch((message) => {
+                alert(message);
+            });
+        };
+
+        document.body.appendChild(script);
+
+        // Controls Panel Toggle - Start expanded
+        var controlsToggle = document.getElementById('controls-toggle');
+        var controlsPanel = document.getElementById('controls-panel');
+        var isExpanded = true;
+
+        controlsToggle.addEventListener('click', function() {
+            isExpanded = !isExpanded;
+            if (isExpanded) {
+                controlsPanel.classList.add('expanded');
+                controlsToggle.querySelector('.toggle-icon').textContent = '×';
+            } else {
+                controlsPanel.classList.remove('expanded');
+                controlsToggle.querySelector('.toggle-icon').textContent = '?';
+            }
+        });
+    </script>
+</body>
+</html>

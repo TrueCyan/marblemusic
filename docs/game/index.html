@@ -4,7 +4,7 @@
     <meta charset="utf-8">
     <meta http-equiv="Content-Type" content="text/html; charset=utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Marble Music</title>
+    <title>MarbleMusic</title>
     <link rel="shortcut icon" href="TemplateData/favicon.ico">
     <link rel="stylesheet" href="TemplateData/style.css">
     <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -59,7 +59,7 @@
 
     <!-- Unity Container -->
     <div id="unity-container" class="unity-desktop">
-        <canvas id="unity-canvas" width=960 height=600 tabindex="-1"></canvas>
+        <canvas id="unity-canvas" width=1280 height=720 tabindex="-1"></canvas>
         <div id="unity-loading-bar">
             <div id="unity-logo"></div>
             <div id="unity-progress-bar-empty">
@@ -70,7 +70,7 @@
         <div id="unity-footer">
             <div id="unity-logo-title-footer"></div>
             <div id="unity-fullscreen-button"></div>
-            <div id="unity-build-title">Marble Music</div>
+            <div id="unity-build-title">MarbleMusic</div>
         </div>
     </div>
 
@@ -97,12 +97,12 @@
         }
 
         var buildUrl = "Build";
-        var loaderUrl = buildUrl + "/Docs.loader.js";
+        var loaderUrl = buildUrl + "/game.loader.js";
         var config = {
             arguments: [],
-            dataUrl: buildUrl + "/Docs.data.br",
-            frameworkUrl: buildUrl + "/Docs.framework.js.br",
-            codeUrl: buildUrl + "/Docs.wasm.br",
+            dataUrl: buildUrl + "/game.data.unityweb",
+            frameworkUrl: buildUrl + "/game.framework.js.unityweb",
+            codeUrl: buildUrl + "/game.wasm.unityweb",
             streamingAssetsUrl: "StreamingAssets",
             companyName: "SejinAn",
             productName: "MarbleMusic",
@@ -118,8 +118,8 @@
             document.querySelector("#unity-container").className = "unity-mobile";
             canvas.className = "unity-mobile";
         } else {
-            canvas.style.width = "960px";
-            canvas.style.height = "600px";
+            canvas.style.width = "1280px";
+            canvas.style.height = "720px";
         }
 
         document.querySelector("#unity-loading-bar").style.display = "block";
